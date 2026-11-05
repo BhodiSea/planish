@@ -3,6 +3,11 @@ name: Sign-off
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
 
 permissions: {}
 
