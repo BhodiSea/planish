@@ -25,6 +25,7 @@ These are Planish's decisions, made by the maintainer: the ones that set what Pl
 - **The extensions promise**, word for word: "Runs the VS Code extensions you already use, from Open VSX or any .vsix you are licensed to use; for Microsoft's few extensions licensed only for its products, we list open replacements. An extension that works in VS Code at the same version but not here is a bug." Open VSX is the registry, as VSCodium sets it. ([Extensions](spec/fork.md#extensions); [Services Microsoft runs](spec/fork.md#services-microsoft-runs))
 - **Open stand-ins are recommended, never bundled.** When a file type calls for a Microsoft extension licensed only for Microsoft's products, Planish recommends an open stand-in, such as basedpyright, clangd, CodeLLDB, open-remote-ssh or open-remote-wsl. ([Stand-ins for Microsoft's extensions](spec/fork.md#stand-ins-for-microsofts-extensions))
 - **Releases are signed as Cogvera Labs**: on macOS through the Apple Developer Program as an organisation, and on Windows with Azure Artifact Signing. Development builds stay unsigned until releases begin. ([Build, release and updates](spec/fork.md#build-release-and-updates))
+- **CI builds Planish in its own workflow, `ci.yml`**: macOS on Apple silicon, Windows x64 and Linux x64, with no secrets and least privilege. VSCodium's build and release workflows are deleted, and each sync keeps them deleted. ([Build, release and updates](spec/fork.md#build-release-and-updates))
 
 ## Agents
 
@@ -66,5 +67,5 @@ These are Planish's decisions, made by the maintainer: the ones that set what Pl
 
 - **Built in public, and led by Cogvera Labs**, with one maintainer for now and a second when review load demands it. ([What Planish is](spec/README.md#what-planish-is))
 - **New code is Apache-2.0.** VS Code's source and the files from VSCodium stay MIT. ([Licences and sign-off](spec/fork.md#licences-and-sign-off))
-- **Every commit is signed off under the Developer Certificate of Origin, and there is no contributor licence agreement.** ([Licences and sign-off](spec/fork.md#licences-and-sign-off))
+- **Every commit new to Planish is signed off under the Developer Certificate of Origin, and there is no contributor licence agreement.** VSCodium's commits, which each sync brings in, are exempt. ([Licences and sign-off](spec/fork.md#licences-and-sign-off))
 - **The code of conduct is the Contributor Covenant**, with info@cogveralabs.ai as the contact. ([Code of conduct](https://github.com/BhodiSea/planish/blob/main/CODE_OF_CONDUCT.md))

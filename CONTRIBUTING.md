@@ -15,6 +15,7 @@ Every commit carries a `Signed-off-by` line (`git commit -s`). It certifies the 
 
 - Files that come from VSCodium stay under the MIT licence in [LICENSE](LICENSE).
 - New files are under the Apache License 2.0 ([LICENSE-APACHE](LICENSE-APACHE)) and start with `SPDX-License-Identifier: Apache-2.0`.
+- Strict JSON files cannot hold that line, so new ones are listed in [REUSE.toml](REUSE.toml) instead.
 
 ## Keep upstream edits few
 

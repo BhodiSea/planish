@@ -15,7 +15,7 @@ How Planish is built from VS Code's source, kept current and released. Marks fol
 
 **Decided.** VS Code's source is [MIT][vscode-license], files from VSCodium stay [MIT][vscodium-license] under VSCodium's notice, and new code is Apache-2.0. Commits are signed off under the [Developer Certificate of Origin][dco] (`git commit -s`); there is no contributor licence agreement.
 
-New files, Planish's patches included, open with `SPDX-License-Identifier: Apache-2.0`; upstream files keep their MIT notice, with Planish's lines fenced. The app ships both licences and the third-party notices. CI refuses commits without a sign-off, which keeps the contributor's name and email in the history for good.
+New files, Planish's patches included, open with `SPDX-License-Identifier: Apache-2.0`; strict JSON files, which cannot hold it, are listed in `REUSE.toml` instead. Upstream files keep their MIT notice, with Planish's lines fenced. The app ships both licences and the third-party notices. CI refuses commits new to Planish without a sign-off, which keeps the contributor's name and email in the history for good; VSCodium's commits, which each sync brings in, are exempt *(decided)*.
 
 ## Keeping up with upstream
 
@@ -175,7 +175,7 @@ Planish follows [Chrome's release notes][chrome-releases], which say when an exp
 
 **Decided.** Planish is built in public. The first release, with both lanes ([order of work](README.md#order-of-work)), is for macOS on Apple silicon, tested by hand; CI builds Windows and Linux from the start, and each is released once tested. Releases are signed as Cogvera Labs, on macOS through the [Apple Developer Program][apple-enroll] as an organisation and on Windows with [Azure Artifact Signing][azure-signing]; development builds stay unsigned until releases begin.
 
-- VSCodium's workflows build all three platforms on GitHub's standard runners. Outside contributors' pull-request workflows run only once a maintainer approves them ([GitHub docs][gh-fork-approval]), and VSCodium's [zizmor][zizmor] check of the workflows stays.
+- Planish's own `ci.yml` builds all three platforms on GitHub's standard runners, with no secrets; VSCodium's build and release workflows are deleted, and each sync keeps them deleted *(decided)*. Outside contributors' pull-request workflows run only once a maintainer approves them ([GitHub docs][gh-fork-approval]), and VSCodium's [zizmor][zizmor] check of the workflows stays.
 - Signing secrets live in a GitHub [environment][gh-env] used only by release jobs, which start from a release tag or by hand and need the maintainer's approval; pull-request CI never sees them. An over-scoped build token once let an attacker ship code in an Amazon Q extension release ([AWS][aws-q]).
 - macOS releases are notarised as well as signed. Every release publishes, as VSCodium's do, SHA-256 checksums and the server open-remote-ssh installs on the remote machine, without which that stand-in fails.
 - Updates use VSCodium's updater, which reads a small versions file and downloads from GitHub Releases ([patch][vscodium-11]). It offers a release only once it is 120 hours old ([patch][vscodium-12]); Planish keeps the wait but lets a release marked as a security fix through at once.

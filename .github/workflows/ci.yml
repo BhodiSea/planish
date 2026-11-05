@@ -1,0 +1,290 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI - Development builds
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # utils.sh's default: build/windows/package.sh runs build_cli.sh, which reads it, without sourcing utils.sh.
+  APP_NAME: VSCodium
+  DISABLE_UPDATE: "yes"
+  SHOULD_BUILD_REH: "no"
+  SHOULD_BUILD_REH_WEB: "no"
+  VSCODE_QUALITY: stable
+
+jobs:
+  macos:
+    name: macOS arm64
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      OS_NAME: osx
+      VSCODE_ARCH: arm64
+      MAX_OLD_SPACE_SIZE: 12288
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Clone VS Code
+        run: ./get_repo.sh
+
+      - name: Build
+        env:
+          SHOULD_BUILD: "yes"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./build.sh
+
+      # Archived and uploaded before the smoke test, which runs an extension downloaded from Open VSX.
+      - name: Archive
+        run: cd VSCode-darwin-arm64 && zip -q -r -X -y "../${APP_NAME}-darwin-arm64-${RELEASE_VERSION}.zip" ./*.app
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ env.APP_NAME }}-darwin-arm64-${{ env.RELEASE_VERSION }}.zip
+          archive: false
+          retention-days: 7
+
+      - name: Smoke test
+        timeout-minutes: 10
+        run: bash test/smoke/smoke.sh VSCode-darwin-arm64/*.app
+
+  windows-compile:
+    name: Windows x64 (compile)
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      OS_NAME: windows
+      VSCODE_ARCH: x64
+    outputs:
+      BUILD_SOURCEVERSION: ${{ env.BUILD_SOURCEVERSION }}
+      RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Clone VS Code
+        run: ./get_repo.sh
+
+      - name: Build
+        env:
+          SHOULD_BUILD: "yes"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./build.sh
+
+      - name: Compress vscode folder
+        run: |
+          find vscode -type f -not -path "*/node_modules/*" -not -path "vscode/.build/node/*" -not -path "vscode/.git/*" > vscode.txt
+          echo "vscode/.build/extensions/node_modules" >> vscode.txt
+          echo "vscode/.git" >> vscode.txt
+          tar -czf vscode.tar.gz -T vscode.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vscode-windows
+          path: ./vscode.tar.gz
+          retention-days: 1
+
+  windows:
+    name: Windows x64
+    needs: windows-compile
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      OS_NAME: windows
+      VSCODE_ARCH: x64
+      BUILD_SOURCEVERSION: ${{ needs.windows-compile.outputs.BUILD_SOURCEVERSION }}
+      RELEASE_VERSION: ${{ needs.windows-compile.outputs.RELEASE_VERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: vscode-windows
+
+      - name: Package
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          npm_config_arch: x64
+          npm_config_target_arch: x64
+        run: ./build/windows/package.sh
+
+      # Uploaded before the smoke test, which runs an extension downloaded from Open VSX.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.APP_NAME }}-win32-x64-${{ env.RELEASE_VERSION }}
+          path: VSCode-win32-x64/
+          retention-days: 7
+
+      - name: Smoke test
+        timeout-minutes: 10
+        run: bash test/smoke/smoke.sh VSCode-win32-x64
+
+  linux-compile:
+    name: Linux x64 (compile)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      OS_NAME: linux
+      VSCODE_ARCH: x64
+    outputs:
+      BUILD_SOURCEVERSION: ${{ env.BUILD_SOURCEVERSION }}
+      RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: egor-tensin/setup-gcc@e06c44b6df51fa631dbc917dfb0ebcc5cec0aa5b # v2.0.3
+        with:
+          version: 10
+          platform: x64
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install headers for kerberos and native-keymap
+        run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev libxkbfile-dev
+
+      - name: Clone VS Code
+        run: ./get_repo.sh
+
+      - name: Build
+        env:
+          SHOULD_BUILD: "yes"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./build.sh
+
+      - name: Compress vscode folder
+        run: |
+          find vscode -type f -not -path "*/node_modules/*" -not -path "vscode/.build/node/*" -not -path "vscode/.git/*" > vscode.txt
+          echo "vscode/.build/extensions/node_modules" >> vscode.txt
+          echo "vscode/.git" >> vscode.txt
+          tar -czf vscode.tar.gz -T vscode.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vscode-linux
+          path: ./vscode.tar.gz
+          retention-days: 1
+
+  linux:
+    name: Linux x64
+    needs: linux-compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: vscodium/vscodium-linux-build-agent:focal-x64@sha256:749fafee34edc43c2702ed2509be1a544d0c1d45b06134ebf51abffb1ddc2a3a
+    env:
+      OS_NAME: linux
+      VSCODE_ARCH: x64
+      BUILD_SOURCEVERSION: ${{ needs.linux-compile.outputs.BUILD_SOURCEVERSION }}
+      RELEASE_VERSION: ${{ needs.linux-compile.outputs.RELEASE_VERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: ./build/linux/deps.sh
+
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          cache: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: vscode-linux
+
+      - name: Package
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          npm_config_arch: x64
+        run: ./build/linux/package_bin.sh
+
+      - name: Archive
+        run: tar -czf "${APP_NAME}-linux-x64-${RELEASE_VERSION}.tar.gz" -C VSCode-linux-x64 .
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ env.APP_NAME }}-linux-x64-${{ env.RELEASE_VERSION }}.tar.gz
+          archive: false
+          retention-days: 7
+
+  linux-smoke:
+    name: Linux x64 (smoke test)
+    needs:
+      - linux-compile
+      - linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RELEASE_VERSION: ${{ needs.linux-compile.outputs.RELEASE_VERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.APP_NAME }}-linux-x64-${{ env.RELEASE_VERSION }}.tar.gz
+
+      - name: Prepare the runner
+        run: |
+          # Chromium's namespace sandbox; Ubuntu 24.04 restricts it through AppArmor, as VS Code's own PR tests note
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update -y
+          sudo apt-get install -y xvfb libgtk-3-0 libxkbfile-dev libgbm1
+          mkdir VSCode-linux-x64
+          tar -xzf "${APP_NAME}-linux-x64-${RELEASE_VERSION}.tar.gz" -C VSCode-linux-x64
+
+      - name: Smoke test
+        timeout-minutes: 10
+        run: xvfb-run -a bash test/smoke/smoke.sh VSCode-linux-x64

@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Sign-off
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  sign-off:
+    name: Sign-off
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check that each commit new to Planish is signed off by its author
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --quiet --no-tags https://github.com/VSCodium/vscodium.git master:refs/vscodium/master
+          commits="$(git rev-list "${HEAD_SHA}" --not "${BASE_SHA}" "refs/remotes/origin/${GITHUB_BASE_REF}" refs/vscodium/master)"
+          echo "Commits to check: $(wc -w <<< "${commits}")"
+          status=0
+          for commit in ${commits}; do
+            author="$(git show -s --format='%an <%ae>' "${commit}")"
+            sign_offs="$(git show -s --format='%(trailers:key=Signed-off-by,valueonly)' "${commit}")"
+            if ! grep -qixF -- "${author}" <<< "${sign_offs}"; then
+              echo "::error::Commit ${commit} needs a 'Signed-off-by:' line with its author's name and email (git commit --amend -s, or git rebase --signoff)."
+              status=1
+            fi
+          done
+          exit "${status}"
