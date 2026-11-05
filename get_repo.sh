@@ -94,8 +94,8 @@ echo "MS_COMMIT=\"${MS_COMMIT}\""
 
 # --- Start Planish ---
 # GitHub also serves commits that exist only in forks through microsoft/vscode's URL, so the pin must be the tag's commit.
-if [[ "$( git ls-remote origin "refs/tags/${MS_TAG}" "refs/tags/${MS_TAG}^{}" | tail -1 | cut -f1 )" != "${MS_COMMIT}" ]]; then
-  echo "Error: ${MS_COMMIT} is not the commit of tag ${MS_TAG} on microsoft/vscode"
+if [[ -z "${MS_COMMIT}" ]] || [[ "$( git ls-remote origin "refs/tags/${MS_TAG}" "refs/tags/${MS_TAG}^{}" | tail -1 | cut -f1 )" != "${MS_COMMIT}" ]]; then
+  echo "Error: '${MS_COMMIT}' is not the commit of tag '${MS_TAG}' on microsoft/vscode"
   exit 1
 fi
 # --- End Planish ---
