@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# --- Start Planish ---
+APP_NAME="${APP_NAME:-Planish}"
+ASSETS_REPOSITORY="${ASSETS_REPOSITORY:-BhodiSea/planish}"
+BINARY_NAME="${BINARY_NAME:-planish}"
+GH_REPO_PATH="${GH_REPO_PATH:-BhodiSea/planish}"
+ORG_NAME="${ORG_NAME:-Cogvera Labs}"
+# --- End Planish ---
 APP_NAME="${APP_NAME:-VSCodium}"
 APP_NAME_LC="$( echo "${APP_NAME}" | awk '{print tolower($0)}' )"
 ASSETS_REPOSITORY="${ASSETS_REPOSITORY:-VSCodium/vscodium}"

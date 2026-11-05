@@ -1,0 +1,44 @@
+{
+  "nameShort": "Planish",
+  "nameLong": "Planish",
+  "applicationName": "planish",
+  "dataFolderName": ".planish",
+  "sharedDataFolderName": ".planish-shared",
+  "urlProtocol": "planish",
+  "linuxIconName": "planish",
+  "linuxDesktopName": "ai.cogveralabs.planish",
+  "darwinBundleIdentifier": "ai.cogveralabs.planish",
+  "darwinProfileUUID": "0486B291-CB5C-4893-B9F1-19D6F9AFC156",
+  "darwinProfilePayloadUUID": "CB4A9447-CE01-48DB-ABBF-7C6AE57438EC",
+  "serverApplicationName": "planish-server",
+  "serverDataFolderName": ".planish-server",
+  "tunnelApplicationName": "planish-tunnel",
+  "win32AppUserModelId": "CogveraLabs.Planish",
+  "win32DirName": "Planish",
+  "win32NameVersion": "Planish",
+  "win32RegValueName": "Planish",
+  "win32ShellNameShort": "Planish",
+  "win32MutexName": "planish",
+  "win32TunnelServiceMutex": "planish-tunnelservice",
+  "win32TunnelMutex": "planish-tunnel",
+  "win32AppId": "{{C9170F33-2D78-4562-84E5-CE34EC10C357}",
+  "win32x64AppId": "{{42D16AFA-6CA7-4555-8E24-95AE4AF90FC4}",
+  "win32arm64AppId": "{{4457DA22-B18F-4E4B-8305-86D729EC4D07}",
+  "win32UserAppId": "{{70548FB6-0EC2-4EBD-822A-86569496B364}",
+  "win32x64UserAppId": "{{CE5ED929-ACFB-4B01-BE7A-A247F3942CB0}",
+  "win32arm64UserAppId": "{{25504638-469D-44C7-B481-7F60F2027883}",
+  "win32ContextMenu": {
+    "x64": {
+      "clsid": "DC00AB2D-78FA-4493-8A90-15A29252C48D"
+    },
+    "arm64": {
+      "clsid": "0D9A56A2-15C0-44A0-BD17-8D77E6680590"
+    }
+  },
+  "licenseUrl": "https://github.com/BhodiSea/planish#licences",
+  "reportIssueUrl": "https://github.com/BhodiSea/planish/issues/new",
+  "downloadUrl": "https://github.com/BhodiSea/planish/releases",
+  "releaseNotesUrl": null,
+  "updateUrl": null,
+  "voiceWsUrl": null
+}

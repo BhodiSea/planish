@@ -19,7 +19,7 @@ concurrency:
 
 env:
   # utils.sh's default: build/windows/package.sh runs build_cli.sh, which reads it, without sourcing utils.sh.
-  APP_NAME: VSCodium
+  APP_NAME: Planish
   DISABLE_UPDATE: "yes"
   SHOULD_BUILD_REH: "no"
   SHOULD_BUILD_REH_WEB: "no"
@@ -52,6 +52,35 @@ jobs:
           SHOULD_BUILD: "yes"
           GITHUB_TOKEN: ${{ github.token }}
         run: ./build.sh
+
+      - name: Check the app's names and notices
+        run: |
+          contents=VSCode-darwin-arm64/Planish.app/Contents
+          status=0
+          check() {
+            found="$(plutil -extract "$1" raw "${contents}/Info.plist" || true)"
+            if [[ "${found}" != "$2" ]]; then
+              echo "::error::Info.plist's $1 is \"${found}\", not \"$2\""
+              status=1
+            fi
+          }
+          check CFBundleIdentifier ai.cogveralabs.planish
+          check CFBundleName Planish
+          check CFBundleURLTypes.0.CFBundleURLSchemes.0 planish
+          jq -e '.dataFolderName == ".planish"' "${contents}/Resources/app/product.json" > /dev/null || { echo "::error::Resources/app/product.json's dataFolderName is not .planish"; status=1; }
+          for file in app/product.json app/LICENSE.txt app/ThirdPartyNotices.txt LICENSES.chromium.html; do
+            if [[ ! -f "${contents}/Resources/${file}" ]]; then
+              echo "::error::Resources/${file} is missing"
+              status=1
+            fi
+          done
+          for licence in "MIT License" "Apache License"; do
+            if ! grep -q "${licence}" "${contents}/Resources/app/LICENSE.txt"; then
+              echo "::error::Resources/app/LICENSE.txt does not hold the ${licence}"
+              status=1
+            fi
+          done
+          exit "${status}"
 
       # Archived and uploaded before the smoke test, which runs an extension downloaded from Open VSX.
       - name: Archive

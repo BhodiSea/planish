@@ -288,4 +288,25 @@ elif [[ "${OS_NAME}" == "windows" ]]; then
   sed -i 's|Microsoft Corporation|VSCodium|' build/win32/code.iss
 fi
 
+# --- Start Planish ---
+# Last, so that Planish's values replace VSCodium's.
+../dev/merge_json.sh
+
+cat ../LICENSE-APACHE >> LICENSE.txt
+
+replace "s|companyName: '[^']*'|companyName: '${ORG_NAME}'|" build/lib/electron.ts
+replace "s|(copyright: 'Copyright \(C\) [0-9]+ )[^.]*|\1${ORG_NAME}|" build/lib/electron.ts
+replace "s|\"CompanyName\", \"[^\"]*\"|\"CompanyName\", \"${ORG_NAME}\"|" cli/build.rs
+replace "s|(\"LegalCopyright\", \"Copyright \(C\) [0-9]+ )[^.]*|\1${ORG_NAME}|" cli/build.rs
+
+# The ADMX namespace is a URI, which cannot hold a space.
+replace "s|namespace=\"[^\"]*\.Policies\.|namespace=\"${ORG_NAME// /}.Policies.|" build/lib/policies/render.ts
+
+replace "s|ShortDisplayName=\"[^\"]*\"|ShortDisplayName=\"${APP_NAME}\"|" resources/win32/VisualElementsManifest.xml
+# VSCodium leaves VS Code's Agents-window icon; its own app icon stands in until Planish has one.
+cp -f resources/win32/code.ico resources/win32/sessions.ico
+
+replace "s|'insider' : 'master'|'insider' : 'main'|" src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts
+# --- End Planish ---
+
 cd ..

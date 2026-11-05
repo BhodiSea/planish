@@ -19,7 +19,8 @@ import subprocess
 import sys
 from collections import Counter
 
-REPLACED = {'CODE_OF_CONDUCT.md', 'CONTRIBUTING.md', 'README.md'}  # Planish's own now
+REPLACED = {'CODE_OF_CONDUCT.md', 'CONTRIBUTING.md', 'README.md',
+            'announcements-extra.json'}  # Planish's own now
 PINS = {'.nvmrc', 'upstream/insider.json', 'upstream/stable.json'}  # version pins, edited in place
 IMAGES = ('.bmp', '.gif', '.icns', '.ico', '.jpg', '.png', '.svg', '.xpm')  # replaced whole
 OVERLAYS = 'patches/user/json/'

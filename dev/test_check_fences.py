@@ -15,6 +15,7 @@ VSCODIUM = {
   '.editorconfig': 'root = true\n',
   '.gitattributes': '* text=auto eol=lf\n',
   'README.md': '# VSCodium\n',
+  'announcements-extra.json': '[\n  {\n    "title": "Securing VSCodium"\n  }\n]\n',
   'utils.sh': '#!/usr/bin/env bash\n\nAPP_NAME="${APP_NAME:-VSCodium}"\n',
   '.github/workflows/ci.yml': 'env:\n  APP_NAME: VSCodium\n',
   'docs/howto-build.md': '# How to build\n',
@@ -161,17 +162,20 @@ class CheckFences(unittest.TestCase):
     code, out = self.run_check({
       'docs/howto-build.md': None,
       'README.md': "# Planish\n\nUnfenced, as the whole file is Planish's now.\n",
+      'announcements-extra.json': '[]\n',
       'icons/codium.png': b'\x89PNG\r\n\x1a\n\0new',
       'patches/90-remove-agent.json': '[{"action": "remove", "paths": ["extensions/agent"]}]\n',
     })
     self.assertEqual(code, 0, out)
     self.assert_lines(
       out,
+      '- announcements-extra.json, replaced whole',
       '- replaced: README.md',
+      '- replaced: announcements-extra.json',
       '- binary: icons/codium.png',
       '- deleted: docs/howto-build.md',
       '- extensions/agent, by patches/90-remove-agent.json',
-      'Upstream files Planish edits: 4')
+      'Upstream files Planish edits: 5')
 
   def test_rejects_unfenced_line_in_patch_hunk(self):
     code, out = self.run_check({'patches/user/01-learn-view.patch': user_patch('import y;')})

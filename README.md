@@ -15,7 +15,7 @@ This repository is a fork of [VSCodium](https://github.com/VSCodium/vscodium)'s 
 
 ## Licences
 
-Files from VSCodium keep VSCodium's MIT licence, and VS Code's source, which the build fetches, is MIT. New code is Apache-2.0. Every commit is signed off under the [Developer Certificate of Origin](https://developercertificate.org/) (`git commit -s`); there is no contributor licence agreement.
+Files from VSCodium keep VSCodium's MIT licence ([LICENSE](LICENSE)), and VS Code's source, which the build fetches, is MIT. New code is Apache-2.0 ([LICENSE-APACHE](LICENSE-APACHE)). Every commit is signed off under the [Developer Certificate of Origin](https://developercertificate.org/) (`git commit -s`); there is no contributor licence agreement.
 
 ## The name
 
