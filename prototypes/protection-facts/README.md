@@ -30,7 +30,7 @@ Median of five snapshots, each after one command; "unchanged" is a second snapsh
 
 NTFS and ext4 have no clone (`cp --reflink=always` fails on ext4). The macOS runner varied most between runs: in an earlier run of the same code, a full copy took 20.3 s per command and a clone 9.4 s, while git's per-command cost stayed at 0.1 s. Git for Windows' repository was smaller than the others for the same files, which the prototype does not explain.
 
-- A shadow git repository costs 0.1–0.2 s after a typical command on all three file systems, once its first snapshot is taken, because git checks file times and sizes and stores only what changed. That makes a snapshot before every command affordable.
+- A shadow git repository costs 0.1 to 0.2 s after a typical command on all three file systems, once its first snapshot is taken, because git checks file times and sizes and stores only what changed. That makes a snapshot before every command affordable.
 - Taking `node_modules` too costs two to five times as much per command, and the first snapshot two to four times as long.
 - A full copy or an APFS clone takes seconds every time, since both visit every file. The clone uses almost no space, but on 100,000 files it takes as long as git's first snapshot, every time.
 - Windows Defender scans the runner's files, which slows every way on NTFS; a user's machine may differ.
