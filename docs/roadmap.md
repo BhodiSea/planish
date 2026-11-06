@@ -99,6 +99,7 @@ Planish for macOS on Apple silicon, signed, notarised and tested by hand, with b
 - [#59](https://github.com/BhodiSea/planish/issues/59) Import settings and extensions from VS Code, Cursor and Antigravity
 - [#60](https://github.com/BhodiSea/planish/issues/60) Set the security defaults for extensions and untrusted folders
 - [#61](https://github.com/BhodiSea/planish/issues/61) Test every view by keyboard alone and with a screen reader
+- [#78](https://github.com/BhodiSea/planish/issues/78) Planish's icons, notices and the names VSCodium and Microsoft still set
 - [#62](https://github.com/BhodiSea/planish/issues/62) Release Planish for macOS on Apple silicon, tested by hand
 
 ## The in-house sidebar
