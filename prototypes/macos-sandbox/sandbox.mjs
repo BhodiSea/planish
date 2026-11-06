@@ -150,11 +150,9 @@ function keepTail(chunks, chunk) {
   while (size > TAIL && chunks.length > 1) size -= chunks.shift().length;
 }
 
-/**
- * options: source (the working tree), command (a shell command), ecosystem,
- * network ('none' or 'loopback'), sandbox (false runs the same clone and
- * environment without Seatbelt, as a baseline), timeoutMs, memoryMb.
- */
+// options: source (the working tree), command (a shell command), ecosystem,
+// network ('none' or 'loopback'), sandbox (false runs the same clone and
+// environment without Seatbelt, as a baseline), timeoutMs, memoryMb.
 export async function runInSandbox(options) {
   const { source, command, ecosystem = null, network = 'none', sandbox = true, timeoutMs = 10 * 60_000, memoryMb = 4096 } = options;
   const base = fs.realpathSync(os.tmpdir());
