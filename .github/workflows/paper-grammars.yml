@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Paper grammars
+
+on:
+  push:
+    paths:
+      - "prototypes/paper-grammars/**"
+      - ".github/workflows/paper-grammars.yml"
+  pull_request:
+    paths:
+      - "prototypes/paper-grammars/**"
+      - ".github/workflows/paper-grammars.yml"
+
+permissions: {}
+
+jobs:
+  test:
+    name: Paper grammars
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: prototypes/paper-grammars
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Install pandoc, to compare its reading of the Markdown papers
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends pandoc
+
+      - run: npm ci
+
+      - name: Test the grammars and the round trip on the corpus
+        run: npm test
+
+      - name: Report what each grammar found
+        run: npm run report

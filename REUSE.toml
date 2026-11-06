@@ -2,5 +2,11 @@
 version = 1
 
 [[annotations]]
-path = ["patches/user/json/**", "test/smoke/extension/package.json"]
+path = [
+  "patches/user/json/**",
+  "prototypes/paper-grammars/corpus.json",
+  "prototypes/paper-grammars/package-lock.json",
+  "prototypes/paper-grammars/package.json",
+  "test/smoke/extension/package.json",
+]
 SPDX-License-Identifier = "Apache-2.0"
