@@ -2,6 +2,7 @@
 // Runs in the app's extension host (--extensionTestsPath); the app exits with 0 when run() resolves, 1 when it throws.
 // SMOKE_MODE picks the checks: smoke (smoke.sh) or agents (agents.sh).
 const fs = require('fs');
+const path = require('path');
 const vscode = require('vscode');
 
 // Claude Code's documented link, and a link to Codex's handler, whose routes are undocumented.
@@ -59,6 +60,17 @@ async function smoke() {
   const commands = (await vscode.commands.getCommands()).filter(id => /agent.?link/i.test(id));
   if (commands.length) {
     throw new Error(`commands any extension can run may open agents' links: ${commands.join(', ')}`);
+  }
+
+  // A built-in extension of Planish's, with its validator and schemas as the app ships them.
+  const learn = vscode.extensions.getExtension('planish.planish-learn');
+  if (!learn) {
+    throw new Error('the built-in extension planish.planish-learn is missing');
+  }
+  const { validateLesson } = require(path.join(learn.extensionPath, 'src', 'lessons', 'validate.js'));
+  const errors = validateLesson(require('../../learn/lesson.json'));
+  if (errors.length) {
+    throw new Error(`the sample lesson fails the shipped validator: ${JSON.stringify(errors)}`);
   }
 
   console.log(`smoke test passed: ${vscode.env.appName} opened ${folders[0]} with ${extension.id} ${extension.packageJSON.version}`);
