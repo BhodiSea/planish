@@ -43,10 +43,11 @@ wait_for() {
   return 1
 }
 
-OUT="vscode/out/${PART%.ts}.js"
+OUT="vscode/out/${PART#src/}"
+OUT="${OUT%.ts}.js"
 ( cd vscode && exec npm run watch-client-transpile ) > watch.log 2>&1 &
 WATCH=$!
-trap 'kill "${WATCH}" 2> /dev/null || true' EXIT
+trap 'kill "${WATCH}" 2> /dev/null || true; tail -n 40 watch.log' EXIT
 wait_for 'grep -q "Finished transpilation" watch.log' 900
 wait_for "grep -qs before '${OUT}'" 30
 
