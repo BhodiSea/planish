@@ -51,7 +51,7 @@ Start a Planish build with the extension's folder in the repository; it replaces
 planish --extensionDevelopmentPath="$PWD/src/stable/extensions/planish-learn"
 ```
 
-After an edit, run **Developer: Reload Window**. If the log says the extension cannot use an API proposal, add `--enable-proposed-api planish.planish-learn`: a release build gives proposals unasked only to extensions it ships or its `product.json` lists. The extension's tests run without the app, in `test/<name>/`.
+After an edit, run **Developer: Reload Window**. An extension that uses one of Planish's API proposals, such as `planishAgentLinks`, also needs `--enable-proposed-api planish.planish-learn`: a release build gives an extension the proposals it declares only when the extension is built in, and the copy in development is not. The extension's tests run without the app, in `test/<name>/`.
 
 ### Everything, from source
 
@@ -64,7 +64,7 @@ npm run watch-client-transpile    # leave running; it recompiles each file you s
 ./scripts/code.sh                 # in another terminal
 ```
 
-After an edit in `src/stable/`, run **Developer: Reload Window**. Run `dev/link.sh` again after adding or removing a file there, and `dev/link.sh -f` after changing a patch, which prepares `vscode/` from scratch. VS Code's own `npm run watch` fails here, as it also watches the Copilot extension VSCodium removes; `npm run watch-client` type-checks as you go, and `npm run watch-extensions` compiles extensions that need it. CI runs this loop on macOS and Linux (`test/dev/loop.sh`).
+After an edit in `src/stable/`, run **Developer: Reload Window**. On Linux the watch misses edits saved in its first seconds, while it scans the tree; save again if one does not show. Run `dev/link.sh` again after adding or removing a file there, and `dev/link.sh -f` after changing a patch, which prepares `vscode/` from scratch. VS Code's own `npm run watch` fails here, as it also watches the Copilot extension VSCodium removes; `npm run watch-client` type-checks as you go, and `npm run watch-extensions` compiles extensions that need it. CI runs this loop on macOS and Linux (`test/dev/loop.sh`).
 
 For a full build on your machine, `dev/build.sh` does what CI does.
 

@@ -7,19 +7,27 @@ on:
       - main
     paths:
       - .github/workflows/dev-loop.yml
+      - .nvmrc
       - dev/link.sh
       - get_repo.sh
+      - patches/**
       - prepare_vscode.sh
       - test/dev/**
       - upstream/stable.json
+      - utils.sh
+      - version.sh
   pull_request:
     paths:
       - .github/workflows/dev-loop.yml
+      - .nvmrc
       - dev/link.sh
       - get_repo.sh
+      - patches/**
       - prepare_vscode.sh
       - test/dev/**
       - upstream/stable.json
+      - utils.sh
+      - version.sh
 
 permissions: {}
 

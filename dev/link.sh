@@ -34,8 +34,18 @@ if [[ ! -d vscode/node_modules ]]; then
   . version.sh
   . prepare_vscode.sh
   { set +x; } 2>/dev/null
+  # As build.sh does: lists the API proposals Planish's patches add.
+  ( cd vscode && npm run gulp compile-api-proposal-names )
   set -uo pipefail
 fi
+
+# Folders since removed from src/stable/.
+for target in vscode/extensions/planish-* vscode/src/vs/workbench/contrib/planish*; do
+  if [[ -e "${target}" || -L "${target}" ]] && [[ ! -d "src/stable/${target#vscode/}" ]]; then
+    rm -rf "${target}"
+    echo "removed ${target}"
+  fi
+done
 
 # A built-in extension's folder is linked whole: the extension host loads an extension from
 # its folder's real path, so its modules load from the repository.

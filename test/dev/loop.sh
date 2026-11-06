@@ -5,7 +5,7 @@
 # built-in extension to src/stable/, links them with dev/link.sh, runs VS Code's watch
 # transpile, edits both and checks that out/ follows the part's edit, then starts the app
 # from source and checks, from inside it, that the extension loads from the repository with
-# its edit. Leaves the probes in src/stable/; CI's checkout is thrown away.
+# its edit. Removes the probes from src/stable/ when it exits; dev/link.sh removes their links.
 #
 # Usage: test/dev/loop.sh    (Linux needs a display: xvfb-run -a test/dev/loop.sh)
 
@@ -31,10 +31,22 @@ cat > "src/stable/${EXTENSION}/package.json" <<'JSON'
 JSON
 echo "exports.activate = () => ({ value: 'before' });" > "src/stable/${EXTENSION}/main.js"
 
+WATCH=""
+cleanup() {
+  if [[ -n "${WATCH}" ]]; then
+    kill "${WATCH}" 2> /dev/null || true
+    tail -n 40 watch.log
+  fi
+  rm -rf "src/stable/${EXTENSION}" "src/stable/${PART}" "src/stable/${PART}.bak" watch.log
+  rmdir -p "$( dirname "src/stable/${PART}" )" 2> /dev/null || true
+}
+trap cleanup EXIT
+
 ./dev/link.sh
 
 # Waits up to $2 seconds for $1 to succeed.
 wait_for() {
+  local i
   for (( i = 0; i < $2; i++ )); do
     if eval "$1"; then return 0; fi
     sleep 1
@@ -47,7 +59,6 @@ OUT="vscode/out/${PART#src/}"
 OUT="${OUT%.ts}.js"
 ( cd vscode && exec npm run watch-client-transpile ) > watch.log 2>&1 &
 WATCH=$!
-trap 'kill "${WATCH}" 2> /dev/null || true; tail -n 40 watch.log' EXIT
 wait_for 'grep -q "Finished transpilation" watch.log' 900
 wait_for "grep -qs before '${OUT}'" 30
 
