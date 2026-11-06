@@ -124,6 +124,8 @@ test('diagrams are Mermaid of a known type, without click actions or init direct
   assert.deepEqual(mermaid('%% a comment\nsequenceDiagram\n  A->>B: hi'), []);
   assert.deepEqual(mermaid('pie\n  "a": 1'), ['/mermaid']);
   assert.deepEqual(mermaid('flowchart LR\n  a --> b\n  click a "https://attacker.example"'), ['/mermaid']);
+  assert.deepEqual(mermaid('graph TD; A-->B; click A href "https://attacker.example"'), ['/mermaid']);
+  assert.deepEqual(mermaid('sequenceDiagram\n  Alice->>Bob: hi\n  links Alice: {"x": "https://attacker.example"}'), ['/mermaid']);
   assert.deepEqual(mermaid('%%{init: {"securityLevel": "loose"}}%%\nflowchart LR\n  a --> b'), ['/mermaid']);
 });
 
@@ -146,6 +148,11 @@ test('text is bounded, not blank, and holds no hidden characters', () => {
   assert.deepEqual(pointers(validatePart({ ...tour, title: '  ' })), ['/title']);
   const [hidden] = validatePart({ ...tour, title: 'Tour\u202e' });
   assert.equal(hidden.message, 'holds the hidden character U+202E');
+  for (const code of [0x061c, 0x00ad, 0x180e, 0xfff9, 0x200b, 0xfeff, 0xe0041, 0x0d]) {
+    const [error] = validatePart({ ...tour, title: `Tour${String.fromCodePoint(code)}` });
+    assert.equal(error && error.pointer, '/title', code.toString(16));
+  }
+  assert.deepEqual(validatePart({ ...tour, steps: [{ ...tour.steps[0], description: 'a\tb\nc' }] }), []);
   assert.deepEqual(pointers(validatePart({ ...tour, steps: Array(51).fill(tour.steps[0]) })), ['/steps']);
 });
 

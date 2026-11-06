@@ -29,8 +29,8 @@ for (const name of fs.readdirSync(path.join(SCHEMAS, 'templates')).sort()) {
 const MAX_ITEMS = 50;
 const MAX_TEXT = { title: 120, mermaid: 10000, plantedChange: 20000 };
 const MAX_TEXT_OTHER = 2000;
-// Characters that hide or reorder text (Trojan Source), and control characters but tab and newline.
-const HIDDEN = /[\u0000-\u0008\u000b-\u001f\u007f​-‏‪-‮⁠-⁤⁦-⁩﻿\u{e0000}-\u{e007f}]/u;
+// Control and format characters, which can hide or reorder text (Trojan Source), but tab and newline.
+const HIDDEN = /(?![\t\n])[\p{Cc}\p{Cf}]/u;
 const MERMAID_TYPES = new Set(['flowchart', 'graph', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'stateDiagram-v2', 'erDiagram']);
 // Fields that name another part, and the template that part must have.
 const REFERENCES = {
@@ -85,7 +85,8 @@ function walk(value, pointer, errors, key) {
 }
 
 function checkMermaid(text, pointer, errors) {
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('%%'));
+  // Mermaid ends a statement at a newline or a semicolon.
+  const lines = text.split(/[\n;]/).map(line => line.trim()).filter(line => line && !line.startsWith('%%'));
   const type = lines.length ? lines[0].split(/\s/)[0] : '';
   if (!MERMAID_TYPES.has(type)) {
     errors.push({ pointer, message: `starts with ${JSON.stringify(type)}`, fix: `start with one of: ${[...MERMAID_TYPES].join(', ')}` });
@@ -93,7 +94,7 @@ function checkMermaid(text, pointer, errors) {
   if (text.includes('%%{')) {
     errors.push({ pointer, message: 'holds an init directive (%%{...}%%)', fix: 'remove it; Planish sets how diagrams are drawn' });
   }
-  if (lines.some(line => /^(click|link|callback)\s/.test(line))) {
+  if (lines.some(line => /^(click|link|links|callback)\s/.test(line))) {
     errors.push({ pointer, message: 'holds a click action', fix: 'remove it; diagrams in lessons do not link or run code' });
   }
 }
