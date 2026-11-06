@@ -6,6 +6,7 @@ path = [
   "patches/user/json/**",
   "src/stable/extensions/planish-learn/package.json",
   "src/stable/extensions/planish-learn/schemas/**",
+  "test/dev/extension/package.json",
   "test/learn/*.json",
   "test/smoke/extension/package.json",
 ]

@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI - Development loop
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/dev-loop.yml
+      - dev/link.sh
+      - get_repo.sh
+      - prepare_vscode.sh
+      - test/dev/**
+      - upstream/stable.json
+  pull_request:
+    paths:
+      - .github/workflows/dev-loop.yml
+      - dev/link.sh
+      - get_repo.sh
+      - prepare_vscode.sh
+      - test/dev/**
+      - upstream/stable.json
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  macos:
+    name: macOS arm64 (development loop)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Prepare VS Code's tree
+        run: ./dev/link.sh
+
+      - name: Test the loop
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./test/dev/loop.sh
+
+  linux:
+    name: Linux x64 (development loop)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: egor-tensin/setup-gcc@e06c44b6df51fa631dbc917dfb0ebcc5cec0aa5b # v2.0.3
+        with:
+          version: 10
+          platform: x64
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Prepare the runner
+        run: |
+          # Chromium's namespace sandbox; Ubuntu 24.04 restricts it through AppArmor, as VS Code's own PR tests note
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update -y
+          sudo apt-get install -y libkrb5-dev libxkbfile-dev xvfb libgtk-3-0 libgbm1
+
+      - name: Prepare VS Code's tree
+        run: ./dev/link.sh
+
+      - name: Test the loop
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: xvfb-run -a ./test/dev/loop.sh
