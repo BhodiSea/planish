@@ -3,6 +3,7 @@
 // extension, so calls that depend on which extension makes them are made from here.
 const vscode = require('vscode');
 
-exports.activate = () => ({
+exports.activate = context => ({
+  logUri: context.logUri,
   openAgentLink: uri => vscode.env.openAgentLink(uri),
 });

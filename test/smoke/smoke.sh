@@ -14,6 +14,7 @@ set -euo pipefail
 EXTENSION="EditorConfig.EditorConfig"
 VERSION="0.18.2"
 
+# shellcheck source=test/smoke/app.sh
 . "$( dirname "${BASH_SOURCE[0]}" )/app.sh"
 
 "${CLI}" "--user-data-dir=${TMP}/user-data" "--extensions-dir=${TMP}/extensions" --install-extension "${EXTENSION}@${VERSION}"

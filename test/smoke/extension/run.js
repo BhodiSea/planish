@@ -14,11 +14,20 @@ const real = p => {
 
 const link = (authority, path) => vscode.Uri.from({ scheme: vscode.env.uriScheme, authority, path, query: 'prompt=Explain%20this%20folder' });
 
-// A question to the user leaves the call waiting, so one that does not finish in time fails.
 const within = (seconds, promise, what) => Promise.race([
   promise,
-  new Promise((_, reject) => setTimeout(() => reject(new Error(`${what} did not finish within ${seconds} s; was a question shown?`)), seconds * 1000)),
+  new Promise((_, reject) => setTimeout(() => reject(new Error(`${what} did not finish within ${seconds} s`)), seconds * 1000)),
 ]);
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// In tests the app answers every confirmation itself, logging this at trace level in the window's
+// log, so the questions asked are counted there. logUri is <window log folder>/exthost/<id>.
+const QUESTION = 'DialogService: refused to show confirmation dialog in tests.';
+const questions = () => {
+  const log = vscode.Uri.joinPath(own.logUri, '..', '..', 'renderer.log').fsPath;
+  return fs.readFileSync(log, 'utf8').split(QUESTION).length - 1;
+};
 
 const rejects = async (call, pattern, what) => {
   try {
@@ -55,8 +64,9 @@ async function smoke() {
   console.log(`smoke test passed: ${vscode.env.appName} opened ${folders[0]} with ${extension.id} ${extension.packageJSON.version}`);
 }
 
-// Started with --enable-proposed-api for this extension, as if it were built in.
+// Started with --enable-proposed-api for this extension, as if it were built in, and --log trace.
 async function agents() {
+  const before = questions();
   for (const [id, path] of Object.entries(AGENTS)) {
     const extension = vscode.extensions.getExtension(id);
     if (!extension) {
@@ -67,8 +77,22 @@ async function agents() {
       throw new Error(`${link(id, path)} was not handled`);
     }
     await within(120, Promise.resolve(extension.activate()), `Activating ${id}`);
-    console.log(`${id} ${extension.packageJSON.version} activated and took ${link(id, path)} without the question`);
+    console.log(`${id} ${extension.packageJSON.version} activated, and the app accepted ${link(id, path)} for it`);
   }
+
+  // The control: the same link opened as any extension would open it asks the question. The
+  // window log is written in order, so once the control's line is there, any from above are too.
+  const control = link('anthropic.claude-code', '/open');
+  await within(60, Promise.resolve(vscode.env.openExternal(control)), `Opening ${control} with openExternal`);
+  let after = questions();
+  for (let tries = 0; after === before && tries < 30; tries++) {
+    await sleep(1000);
+    after = questions();
+  }
+  if (after !== before + 1) {
+    throw new Error(`expected the question once, for openExternal, but the window log has ${after - before} since the test began`);
+  }
+  console.log('openAgentLink asked no question; openExternal asked it once');
 
   for (const uri of [link('planish.planish-smoke', '/'), vscode.Uri.parse('https://anthropic.claude-code/open')]) {
     await rejects(() => own.openAgentLink(uri), /Not a link to Claude Code or Codex/, `openAgentLink(${uri})`);

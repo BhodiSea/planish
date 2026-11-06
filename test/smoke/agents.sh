@@ -5,7 +5,8 @@
 # version before Open VSX's newest, updates them, and checks they moved on. Codex's builds come
 # as releases and pre-releases, so it is tried on both channels, and installed without a version
 # to see which Open VSX gives. Then starts the app with both and checks, from inside the app,
-# that each activates and takes a link from vscode.env.openAgentLink without the question.
+# that each activates and that vscode.env.openAgentLink opens its link without the question,
+# which the same link opened with vscode.env.openExternal asks.
 # Writes what it found to $GITHUB_STEP_SUMMARY when that is set.
 #
 # Usage: test/smoke/agents.sh <VSCode-darwin-arm64/*.app | VSCode-linux-x64 | VSCode-win32-x64>
@@ -16,6 +17,7 @@ set -euo pipefail
 CLAUDE="anthropic.claude-code"
 CODEX="openai.chatgpt"
 
+# shellcheck source=test/smoke/app.sh
 . "$( dirname "${BASH_SOURCE[0]}" )/app.sh"
 
 case "$( uname -s )" in
@@ -72,9 +74,9 @@ plain="$( installed "${TMP}/agents" "${CODEX}" )"
 SUMMARY+=( "| Codex, without a version | ${plain} | | |" )
 
 if (( status == 0 )); then
-  run_tests agents "${TMP}/agents" --enable-proposed-api planish.planish-smoke || status=1
+  run_tests agents "${TMP}/agents" --enable-proposed-api planish.planish-smoke --log trace || status=1
 fi
-SUMMARY+=( "" "The app with both: $( (( status == 0 )) && echo "each activated and took its link without the question" || echo "failed; see the log" )." )
+SUMMARY+=( "" "The app with both: $( (( status == 0 )) && echo "each activated and openAgentLink opened its link without the question, which openExternal asked" || echo "failed; see the log" )." )
 
 printf '%s\n' "${SUMMARY[@]}"
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
