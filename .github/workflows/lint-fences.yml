@@ -6,6 +6,11 @@ on:
     branches:
       - main
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
 
 permissions: {}
 
@@ -23,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Test the fence check
-        run: python3 -I -m unittest discover --start-directory dev --pattern 'test_*.py'
+        run: python3 -I -B -m unittest discover --start-directory dev --pattern 'test_*.py'
 
       - name: Fetch VSCodium's master
         run: git fetch --quiet --no-tags https://github.com/VSCodium/vscodium.git master:refs/vscodium/master

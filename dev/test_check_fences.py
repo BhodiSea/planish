@@ -30,7 +30,7 @@ FENCED_SH = (
   '#!/usr/bin/env bash\n\n# --- Start Planish ---\nAPP_NAME="${APP_NAME:-Planish}"\n'
   '# --- End Planish ---\nAPP_NAME="${APP_NAME:-VSCodium}"\n')
 ELECTRON = 'patches/user/00-build-update-electron.patch'
-FENCED_NPMRC = ('# --- Start Planish ---', 'target="43.7.8"', '# --- End Planish ---')
+FENCED_NPMRC = ('# --- Start Planish ---', '# target="43.7.7"', 'target="43.7.8"', '# --- End Planish ---')
 SUMS = (
   f'{"c" * 64} *chromedriver-v43.7.8-darwin-arm64.zip',
   f'{"d" * 64} *electron-v43.7.8-darwin-arm64.zip')
@@ -50,12 +50,12 @@ class Indexed(str):
   file system."""
 
 
-def hunk(path, *added):
-  """A patch section adding lines after line 1 of path."""
-  plus = ''.join(f'+{line}\n' for line in added)
+def hunk(path, *added, removed=()):
+  """A patch section putting the lines added after line 1 of path, in place of those removed."""
+  lines = ''.join(f'-{line}\n' for line in removed) + ''.join(f'+{line}\n' for line in added)
   return (
     f'diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n'
-    f'@@ -1,1 +1,{1 + len(added)} @@\n import x;\n{plus}')
+    f'@@ -1,{1 + len(removed)} +1,{1 + len(added)} @@\n import x;\n{lines}')
 
 
 def new_file(path, *added):
@@ -66,8 +66,8 @@ def new_file(path, *added):
     f'@@ -0,0 +1,{len(added)} @@\n{plus}')
 
 
-def user_patch(*added, spdx=True):
-  return (SPDX if spdx else '') + hunk('src/b.ts', *added)
+def user_patch(*added, spdx=True, removed=()):
+  return (SPDX if spdx else '') + hunk('src/b.ts', *added, removed=removed)
 
 
 def electron_patch(npmrc=FENCED_NPMRC, sums=SUMS, extra=''):
@@ -138,7 +138,8 @@ class CheckFences(unittest.TestCase):
         '# --- End Planish ---\n'),
       'utils.sh': FENCED_SH,
       '.github/workflows/ci.yml': (
-        'env:\n  # --- Start Planish ---\n  APP_NAME: Planish\n  # --- End Planish ---\n'),
+        'env:\n  # --- Start Planish ---\n  # APP_NAME: VSCodium\n  APP_NAME: Planish\n'
+        '  # --- End Planish ---\n'),
       'docs/howto-build.md': (
         '# How to build\n<!-- --- Start Planish --- -->\nPlanish.\n<!-- --- End Planish --- -->\n'),
       'upstream/stable.json': '{\n  "tag": "1.144.0"\n}\n',
@@ -198,6 +199,102 @@ class CheckFences(unittest.TestCase):
       '- utils.sh:5: fence marker must read "# --- Start Planish ---" or "# --- End Planish ---"',
       '- utils.sh:3: fence opened but never closed')
 
+  def test_accepts_each_comment_syntax_and_file_type(self):
+    jsonc = ('build/tsconfig.build.json', 'build/jsconfig.json', '.vscode/settings.json')
+    hashed = ('bin/codium', 'justfile', 'Makefile', 'Dockerfile')
+    upstream = {
+      'build/a.xml': '<a>\n</a>\n', 'src/a.css': 'a {}\n', 'build/win32/a.iss': '[Setup]\n',
+      **{path: '{\n}\n' for path in jsonc}, 'bin/codium': '#!/usr/bin/env sh\n', 'justfile': 'lint:\n',
+      'Makefile': 'all:\n', 'Dockerfile': 'FROM scratch\n', '.nvmrc': '24.17.0\n',
+    }
+    code, out = self.run_check({
+      'build/a.xml': '<a>\n<!-- Start Planish -->\n<b/>\n<!-- End Planish -->\n</a>\n',
+      'src/a.css': 'a {}\n/* --- Start Planish --- */\nb {}\n/* --- End Planish --- */\n',
+      'build/win32/a.iss': '[Setup]\n; --- Start Planish ---\nAppName=Planish\n; --- End Planish ---\n',
+      **{path: '{\n  // --- Start Planish ---\n  "a": 1\n  // --- End Planish ---\n}\n' for path in jsonc},
+      **{path: upstream[path] + '# --- Start Planish ---\nx\n# --- End Planish ---\n' for path in hashed},
+      '.nvmrc': '24.18.0\n',
+    }, upstream=upstream)
+    self.assertEqual(code, 0, out)
+    self.assert_lines(out, '- version pin: .nvmrc', 'Upstream files Planish edits: 11')
+
+  def test_rejects_markers_of_another_syntax(self):
+    code, out = self.run_check({
+      'build/a.xml': '<a>\n<!-- --- Start Planish --- -->\n<!-- --- End Planish --- -->\n</a>\n',
+      'src/a.css': 'a {}\n// --- Start Planish ---\n',
+      'build/win32/a.iss': '[Setup]\n# --- Start Planish ---\n',
+      'build/tsconfig.json': '{\n  "a": 1\n}\n',
+      'notes.txt': 'a\n# --- Start Planish ---\nb\n# --- End Planish ---\n',
+    }, upstream={
+      'build/a.xml': '<a>\n</a>\n', 'src/a.css': 'a {}\n', 'build/win32/a.iss': '[Setup]\n',
+      'build/tsconfig.json': '{\n}\n', 'notes.txt': 'a\n'})
+    self.assertEqual(code, 1, out)
+    self.assert_lines(
+      out,
+      '- build/a.xml:2: fence marker must read "<!-- Start Planish -->" or "<!-- End Planish -->"',
+      '- build/a.xml:3: fence marker must read',
+      '- src/a.css:2: fence marker must read "/* --- Start Planish --- */" or "/* --- End Planish --- */"',
+      '- build/win32/a.iss:2: fence marker must read "; --- Start Planish ---" or "; --- End Planish ---"',
+      '- build/tsconfig.json:2: line added outside a fence\n',
+      '- notes.txt:2: fence marker in a file type without known comments',
+      '- notes.txt:4: fence marker in a file type without known comments',
+      '- notes.txt:3: line added outside a fence (comment syntax unknown: add the file type to EXTENSIONS)',
+      'Errors: 8\n')
+
+  def test_accepts_removed_lines_kept_as_comments_in_fences(self):
+    remove = 'patches/10-remove.patch'
+    code, out = self.run_check({
+      'utils.sh': (
+        '#!/usr/bin/env bash\n# --- Start Planish ---\n#   APP_NAME="${APP_NAME:-VSCodium}"\n'
+        'APP_NAME="${APP_NAME:-Planish}"\n# --- End Planish ---\n'),
+      'docs/howto-build.md': (
+        '<!-- --- Start Planish --- -->\n<!-- # How to build -->\n# Building Planish\n'
+        '<!-- --- End Planish --- -->\n'),
+      'patches/user/01-learn-view.patch': user_patch(
+        '// --- Start Planish ---', '//  const  a = 1;', '// --- End Planish ---',
+        removed=('', 'const a = 1;')),
+      'build/a.sh': '# --- Start Planish ---\n# foo\nkeep\nkept\n# --- End Planish ---\n',
+      remove: hunk('src/c.ts', removed=('telemetry();',)).replace('@@ -1,2 +1,1 @@', '@@ -4,2 +4,1 @@'),
+    }, upstream={remove: hunk('src/c.ts', removed=('telemetry();',)), 'build/a.sh': 'keep\nfoo\nkept\n'})
+    self.assertEqual(code, 0, out)
+
+  def test_rejects_removed_lines_not_kept_as_comments_in_fences(self):
+    remove = 'patches/10-remove.patch'
+    code, out = self.run_check({
+      'utils.sh': '#!/usr/bin/env bash\n\n',
+      '.github/workflows/ci.yml': (
+        'env:\n  # --- Start Planish ---\n  APP_NAME: Planish\n  # --- End Planish ---\n'),
+      'build/a.sh': (
+        'a\n# --- Start Planish ---\n# foo\n# --- End Planish ---\nb\n'
+        '# --- Start Planish ---\n# foo\n# --- End Planish ---\n'),
+      'build/b.sh': '# --- Start Planish ---\n# foo\n# --- End Planish ---\na\n',
+      'notes.txt': 'b\n',
+      'patches/user/01-learn-view.patch': user_patch('let a = 2;', removed=('const a = 1;',)),
+      'patches/user/02-swap.patch': SPDX + hunk(
+        'src/c.ts', '// --- Start Planish ---', 'let a = 2;', '// --- End Planish ---',
+        removed=('const a = 1;',)),
+      'patches/user/03-apart.patch': SPDX + (
+        'diff --git a/src/d.ts b/src/d.ts\n--- a/src/d.ts\n+++ b/src/d.ts\n@@ -2 +1,0 @@\n-foo();\n'
+        '@@ -3,0 +3,3 @@\n+// --- Start Planish ---\n+// foo();\n+// --- End Planish ---\n'),
+      remove: hunk('src/c.ts', removed=('telemetry();', 'telemetry();')),
+    }, upstream={
+      'build/a.sh': 'a\nfoo\nfoo\nb\n', 'build/b.sh': 'a\nfoo\n', 'notes.txt': 'a\nb\n',
+      remove: hunk('src/c.ts', removed=('telemetry();',))})
+    self.assertEqual(code, 1, out)
+    self.assert_lines(
+      out,
+      "- utils.sh:2: VSCodium's line 3 removed outside a fence\n",
+      "- .github/workflows/ci.yml:2: VSCodium's line 2 removed but not kept as a comment in its fence",
+      "- build/a.sh:2: VSCodium's line 3 removed but not kept as a comment in its fence",
+      "- build/b.sh:4: VSCodium's line 2 removed outside a fence\n",
+      "- notes.txt:1: VSCodium's line 1 removed outside a fence (comment syntax unknown",
+      '- patches/user/01-learn-view.patch:7: src/b.ts: line removed outside a fence\n',
+      '- patches/user/01-learn-view.patch:8: src/b.ts: line added outside a fence\n',
+      '- patches/user/02-swap.patch:7: src/c.ts: line removed but not kept as a comment in its fence',
+      '- patches/user/03-apart.patch:6: src/d.ts: line removed outside a fence\n',
+      f'- {remove}:7: src/c.ts: line removed outside a fence\n',
+      'Errors: 10\n')
+
   def test_rejects_strict_json_edited_in_place(self):
     code, out = self.run_check({'product.json': '{\n  "a": 2\n}\n'})
     self.assertEqual(code, 1, out)
@@ -212,31 +309,71 @@ class CheckFences(unittest.TestCase):
     self.assertEqual(code, 1, out)
     self.assertIn('- patches/00-brand.patch:6: src/a.ts: line added outside a fence', out)
 
+  def test_disables_a_vscodium_patch_only_by_renaming_it_unchanged(self):
+    brand, other = VSCODIUM['patches/00-brand.patch'], 'patches/01-other.patch'
+    code, out = self.run_check(
+      {'patches/00-brand.patch': None, 'patches/00-brand.patch.no': brand, other: None},
+      upstream={other: brand.replace('a.ts', 'b.ts')})
+    self.assertEqual(code, 0, out)
+    self.assert_lines(
+      out, '- disabled: patches/00-brand.patch\n', f'- deleted: {other}\n', 'Upstream files Planish edits: 2')
+    self.assertNotIn('deleted: patches/00-brand.patch', out)
+    for renamed, text in (('patches/00-brand.patch.no', brand.replace('const brand', 'let brand')),
+                          ('patches/02-brand.patch', brand)):
+      code, out = self.run_check({'patches/00-brand.patch': None, renamed: text})
+      self.assertEqual(code, 1, out)
+      self.assert_lines(
+        out, f"- {renamed}:1: a patch of Planish's must start with",
+        f'- {renamed}:6: src/a.ts: line added outside a fence')
+
+  def test_checks_patch_yet_and_patch_no_files(self):
+    yet = 'patches/00-update-disable.patch.yet'
+    code, out = self.run_check({
+      yet: hunk('src/c.ts', 'disable();', 'more();'),
+      'patches/user/01-later.patch.yet': user_patch('import y;'),
+      'patches/02-off.patch.no': user_patch(
+        '// --- Start Planish ---', 'import y;', '// --- End Planish ---', spdx=False),
+    }, upstream={yet: hunk('src/c.ts', 'disable();')})
+    self.assertEqual(code, 1, out)
+    self.assert_lines(
+      out,
+      f'- {yet}:7: src/c.ts: line added outside a fence',
+      '- patches/user/01-later.patch.yet:7: src/b.ts: line added outside a fence',
+      "- patches/02-off.patch.no:1: a patch of Planish's must start with",
+      'Errors: 3\n')
+
   def test_rejects_new_file_that_could_replace_a_vs_code_file(self):
     code, out = self.run_check({
       'src/stable/src/vs/code/main.ts': 'x\n',
       'src/stable/extensions/planish-learn/package.json': '{}\n',
+      'src/insider/src/vs/base/common/a.ts': 'x\n',
+      'src/insider/src/vs/workbench/contrib/planish/learn.ts': 'x\n',
       'src/README.md': '# Sources\n',
     })
     self.assertEqual(code, 1, out)
     self.assert_lines(
-      out, '- src/stable/src/vs/code/main.ts:1: could replace vscode/src/vs/code/main.ts', 'Errors: 1\n')
+      out,
+      '- src/stable/src/vs/code/main.ts:1: could replace vscode/src/vs/code/main.ts',
+      '- src/insider/src/vs/base/common/a.ts:1: could replace vscode/src/vs/base/common/a.ts',
+      'Errors: 2\n')
 
   def test_new_files_need_fences_outside_planish_folders(self):
     main = 'src/vs/code/main.ts'
     code, out = self.run_check({
-      'patches/user/01-swap.patch': SPDX + (
+      'patches/user/01-delete.patch': SPDX + (
         f'diff --git a/{main} b/{main}\ndeleted file mode 100644\n--- a/{main}\n+++ /dev/null\n'
-        '@@ -1 +0,0 @@\n-start();\n') + new_file(main, 'evil();'),
-      'patches/user/02-learn.patch': SPDX + new_file('extensions/planish-learn/a.ts', 'learn();'),
+        '@@ -1 +0,0 @@\n-start();\n'),
+      'patches/user/02-create.patch': SPDX + new_file(main, 'evil();'),
+      'patches/user/03-learn.patch': SPDX + new_file('extensions/planish-learn/a.ts', 'learn();'),
       'patches/01-new.patch': new_file('src/new.ts', 'export const a = 1;', 'export const b = 2;'),
     }, upstream={'patches/01-new.patch': new_file('src/new.ts', 'export const a = 1;')})
     self.assertEqual(code, 1, out)
     self.assert_lines(
       out,
-      f'- patches/user/01-swap.patch:13: {main}: line added outside a fence',
+      f'- patches/user/02-create.patch:7: {main}: line added outside a fence',
+      f'- patches/user/02-create.patch:1: {main}: deleted by patches/user/01-delete.patch and created again',
       '- patches/01-new.patch:7: src/new.ts: line added outside a fence',
-      'Errors: 2\n')
+      'Errors: 3\n')
 
   def test_rejects_names_that_differ_only_in_case(self):
     code, out = self.run_check({
@@ -278,24 +415,27 @@ class CheckFences(unittest.TestCase):
     self.assertEqual(code, 0, out)
     self.assert_lines(
       out,
-      f'- build/checksums/electron.txt, by {ELECTRON}: 2 lines unfenced (Electron update)',
-      f'- cgmanifest.json, by {ELECTRON}: 2 lines unfenced (Electron update)',
+      f'- build/checksums/electron.txt, by {ELECTRON}: 4 lines unfenced (Electron update)',
+      f'- cgmanifest.json, by {ELECTRON}: 4 lines unfenced (Electron update)',
       f'- .npmrc, by {ELECTRON}\n',
       f'- vscode/cgmanifest.json, by {ELECTRON}\n')
     code, out = self.run_check({
       ELECTRON: electron_patch(
         npmrc=('target="43.7.8"',), sums=SUMS + ('curl -s https://example.invalid',),
-        extra=hunk('package.json', '  "electron": "43.7.8",')),
+        extra=hunk('package.json', '  "electron": "43.7.8",')
+        + hunk('build/checksums/electron.txt', removed=('sha',))),
       'patches/user/01-sums.patch': SPDX + hunk('build/checksums/electron.txt', SUMS[0]),
     })
     self.assertEqual(code, 1, out)
     self.assert_lines(
       out,
+      f'- {ELECTRON}:7: .npmrc: line removed outside a fence\n',
       f'- {ELECTRON}:8: .npmrc: line added outside a fence\n',
       f'- {ELECTRON}:18: build/checksums/electron.txt: line added outside a fence (comment syntax',
       f'- {ELECTRON}:33: package.json: line added outside a fence (strict JSON',
+      f'- {ELECTRON}:39: build/checksums/electron.txt: line removed outside a fence (comment syntax',
       '- patches/user/01-sums.patch:7: build/checksums/electron.txt: line added outside a fence',
-      'Errors: 4\n')
+      'Errors: 6\n')
 
   def test_rejects_edits_hidden_from_the_diff(self):
     code, out = self.run_check({
@@ -304,6 +444,8 @@ class CheckFences(unittest.TestCase):
       'docs/howto-build.md': '# How to build\n\0',
       'patches/user/02-link.patch': Link('../../docs/other.patch'),
       'patches/user/03-binary.patch': BINARY_PATCH,
+      'patches/user/04-padded.patch': user_patch(removed=('telemetry();',)).replace(
+        '@@ -1,2 +1,1 @@', '@@ -0000000001,2 +0000000001,1 @@'),  # git apply reads what HUNK skips
     })
     self.assertEqual(code, 1, out)
     self.assert_lines(
@@ -311,7 +453,56 @@ class CheckFences(unittest.TestCase):
       '- utils.sh:7: line added outside a fence',
       '- docs/howto-build.md:1: upstream text file made binary',
       '- patches/user/02-link.patch:1: a symlink or submodule, which this check cannot read',
-      '- patches/user/03-binary.patch:1: git apply reads this patch differently')
+      '- patches/user/03-binary.patch:1: git apply reads this patch differently',
+      '- patches/user/04-padded.patch:1: git apply reads this patch differently')
+
+  def test_rejects_patches_that_move_copy_or_change_modes(self):
+    def section(header, new='src/b.ts'):
+      return (
+        f'{SPDX}diff --git a/src/b.ts b/{new}\n{header}--- a/src/b.ts\n+++ b/{new}\n'
+        '@@ -1,1 +1,4 @@\n import x;\n+// --- Start Planish ---\n+import y;\n+// --- End Planish ---\n')
+    patches = {
+      'patches/user/01-rename.patch': section(
+        'similarity index 50%\nrename from src/b.ts\nrename to src/c.ts\n', 'src/c.ts'),
+      'patches/user/02-move.patch': section('', 'src/c.ts'),
+      'patches/user/03-copy.patch': section(
+        'similarity index 50%\ncopy from src/b.ts\ncopy to src/c.ts\n', 'src/c.ts'),
+      'patches/user/04-mode.patch': section('old mode 100644\nnew mode 100755\n'),
+      'patches/user/05-rename-only.patch': (
+        f'{SPDX}diff --git a/src/b.ts b/src/c.ts\nsimilarity index 100%\n'
+        'rename from src/b.ts\nrename to src/c.ts\n'),
+    }
+    note = section('').replace(SPDX, SPDX + 'new mode for imports, in words git apply skips\n')
+    code, out = self.run_check({**patches, 'patches/user/06-note.patch': note})
+    self.assertEqual(code, 1, out)
+    self.assert_lines(
+      out, *(f'- {path}:1: git apply reads this patch differently' for path in patches), 'Errors: 5\n')
+
+  def test_lists_the_vs_code_files_edited_at_build_time(self):
+    script, tail = '#!/usr/bin/env bash\n\ncd vscode\nreplace "s|a|b|" vscodium.ts\n', 'cp -f a vscodium.ico\n'
+    block = (
+      '# --- Start Planish ---\n'
+      '# a comment\n'
+      '../dev/merge_json.sh\n\n'
+      'replace "s|a|b|" build/lib/electron.ts\n'
+      "replace 's|c|d|' build/lib/electron.ts\n"
+      '  cp -f resources/win32/code.ico "resources/win32/sessions.ico"  # stands in\n'
+      'cat ../LICENSE-APACHE >> LICENSE.txt\n'
+      '# --- End Planish ---\n')
+    code, out = self.run_check(
+      {'prepare_vscode.sh': script + block + tail}, upstream={'prepare_vscode.sh': script + tail})
+    self.assertEqual(code, 0, out)
+    self.assert_lines(
+      out,
+      '  VS Code files edited at build time: 3\n'
+      '    - LICENSE.txt\n    - build/lib/electron.ts\n    - resources/win32/sessions.ico\n',
+      'Upstream files Planish edits: 4')
+    broken = block.replace('code.ico "', 'code.ico ').replace('cat ', 'sed -i "s|e|f|" cli/build.rs\ncat ')
+    code, out = self.run_check({'prepare_vscode.sh': script + broken}, upstream={'prepare_vscode.sh': script})
+    self.assertEqual(code, 1, out)
+    self.assert_lines(
+      out, '- prepare_vscode.sh:11: replace, cp or cat that this check cannot read',
+      '- prepare_vscode.sh:12: a line this check cannot list', 'Errors: 2\n')
 
   def test_untrusted_names_start_no_workflow_command(self):
     name = '::error file=x::boom\n##[warning]a.sh'
