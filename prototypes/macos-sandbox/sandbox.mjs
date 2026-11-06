@@ -4,6 +4,7 @@
 // run's folder, clone included, is deleted afterwards.
 
 import { execFile, execFileSync, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,8 +14,10 @@ const run = promisify(execFile);
 
 export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
 const PROFILE = fs.readFileSync(new URL('./profile.sbpl', import.meta.url), 'utf8');
-// Codex's rules for local binding: listen on any address, accept and connect
-// only through loopback. Loopback also reaches the device's other servers.
+// Codex's rules for local binding (codex-rs/sandboxing/src/seatbelt.rs,
+// copyright 2025 OpenAI, Apache License 2.0): listen on any address, accept
+// and connect only through loopback, which also reaches the device's other
+// servers.
 const LOOPBACK = `
 (allow network-bind (local ip "*:*"))
 (allow network-inbound (local ip "localhost:*"))
@@ -23,10 +26,23 @@ const LOOPBACK = `
 const TAIL = 64 * 1024;
 const POLL_MS = 200;
 
-export function profile(network) {
-  if (network === 'none') return PROFILE;
-  if (network === 'loopback') return PROFILE + LOOPBACK;
-  throw new Error(`unknown network mode ${network}`);
+// Where credentials usually live, relative to the home folder. A run's output
+// reaches the learner's agent and its model provider, so a run must not read
+// them. The list cannot be complete.
+export const SECRETS = [
+  '.ssh', '.gnupg', '.aws', '.azure', '.kube', '.netrc', '.npmrc', '.pypirc', '.git-credentials',
+  '.docker/config.json', '.cargo/credentials', '.cargo/credentials.toml',
+  '.config/gh', '.config/gcloud', '.config/hub', '.claude', '.claude.json', '.codex',
+  'Library/Keychains', 'Library/Cookies', 'Library/Application Support/Google/Chrome',
+  'Library/Application Support/Firefox', 'Library/Safari',
+];
+
+const quote = (text) => `"${text.replace(/[\\"]/g, (c) => `\\${c}`)}"`;
+
+export function profile(network, home = fs.realpathSync(os.homedir())) {
+  if (network !== 'none' && network !== 'loopback') throw new Error(`unknown network mode ${network}`);
+  const secrets = SECRETS.map((name) => `(deny file-read* file-write* (subpath ${quote(path.join(home, name))}))`).join('\n');
+  return `${PROFILE}${network === 'loopback' ? LOOPBACK : ''}\n${secrets}\n`;
 }
 
 // cp -c clones each file with clonefile(2). Node's fs.cp with
@@ -118,23 +134,26 @@ async function goEnv(name) {
   }
 }
 
+// With -E, ps shows each process's environment after its command, which
+// finds a run's processes that have left its process group.
 async function processTable() {
-  const { stdout } = await run('/bin/ps', ['-A', '-o', 'pid=,ppid=,pgid=,rss=']);
+  const { stdout } = await run('/bin/ps', ['-A', '-E', '-ww', '-o', 'pid=,ppid=,pgid=,rss=,command='], { maxBuffer: 256 * 1024 * 1024 });
   return stdout.trim().split('\n').map((line) => {
-    const [pid, ppid, pgid, rss] = line.trim().split(/\s+/).map(Number);
-    return { pid, ppid, pgid, rss };
+    const [pid, ppid, pgid, rss, ...command] = line.trim().split(/\s+/);
+    return { pid: Number(pid), ppid: Number(ppid), pgid: Number(pgid), rss: Number(rss), command: command.join(' ') };
   });
 }
 
-// The run's processes: the root's process group and its descendants.
-function members(table, root, seen) {
+// The run's processes: the root's process group, processes carrying the run's
+// marker in their environment, and their descendants.
+function members(table, root, seen, marker) {
   const children = new Map();
   for (const row of table) {
     if (!children.has(row.ppid)) children.set(row.ppid, []);
     children.get(row.ppid).push(row);
   }
   const found = new Map();
-  const queue = table.filter((row) => row.pid === root || row.pgid === root || seen.has(row.pid));
+  const queue = table.filter((row) => row.pid === root || row.pgid === root || seen.has(row.pid) || row.command.includes(marker));
   while (queue.length) {
     const row = queue.pop();
     if (found.has(row.pid)) continue;
@@ -167,22 +186,24 @@ export async function runInSandbox(options) {
     cloneTree(source, tree);
     const cloneMs = Date.now() - started;
     const env = await environment(runDir, ecosystem);
+    env.PLANISH_RUN = randomUUID();
     const [file, args] = sandbox
       ? [SANDBOX_EXEC, ['-p', profile(network), '-D', `RUN=${runDir}`, '/bin/sh', '-c', command]]
       : ['/bin/sh', ['-c', command]];
-    const result = await supervise(file, args, { cwd: tree, env }, timeoutMs, memoryMb);
+    const result = await supervise(file, args, { cwd: tree, env }, timeoutMs, memoryMb, `PLANISH_RUN=${env.PLANISH_RUN}`);
     return { ...result, cloneMs, runDir };
   } finally {
     removeTree(runDir);
   }
 }
 
-function supervise(file, args, spawnOptions, timeoutMs, memoryMb) {
+function supervise(file, args, spawnOptions, timeoutMs, memoryMb, marker) {
   return new Promise((resolve, reject) => {
     const started = Date.now();
     const child = spawn(file, args, { ...spawnOptions, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     const stdout = [];
     const stderr = [];
+    const closed = new Promise((done) => child.on('close', done));
     child.stdout.on('data', (chunk) => keepTail(stdout, chunk));
     child.stderr.on('data', (chunk) => keepTail(stderr, chunk));
     const seen = new Set();
@@ -197,6 +218,15 @@ function supervise(file, args, spawnOptions, timeoutMs, memoryMb) {
         } catch {}
       }
     };
+    // Kills until a scan finds none, since a process may fork while dying.
+    const sweep = async () => {
+      for (let round = 0; round < 20; round++) {
+        killAll();
+        const left = members(await processTable(), child.pid, new Set(), marker).filter((row) => row.pid !== process.pid);
+        if (left.length === 0) return;
+        for (const row of left) seen.add(row.pid);
+      }
+    };
     const stop = (why) => {
       if (reason === 'exit') reason = why;
       killAll();
@@ -206,7 +236,7 @@ function supervise(file, args, spawnOptions, timeoutMs, memoryMb) {
       if (polling) return;
       polling = true;
       try {
-        const rows = members(await processTable(), child.pid, seen);
+        const rows = members(await processTable(), child.pid, seen, marker);
         for (const row of rows) seen.add(row.pid);
         const kb = rows.reduce((sum, row) => sum + row.rss, 0);
         peakKb = Math.max(peakKb, kb);
@@ -220,12 +250,12 @@ function supervise(file, args, spawnOptions, timeoutMs, memoryMb) {
       clearInterval(poll);
       reject(error);
     });
-    child.on('exit', (code, signal) => {
+    child.on('exit', async (code, signal) => {
       clearTimeout(timer);
       clearInterval(poll);
       const durationMs = Date.now() - started;
       // Background processes the command left behind die with it.
-      killAll();
+      await sweep().catch(() => killAll());
       const finish = () => resolve({
         code,
         signal,
@@ -235,13 +265,13 @@ function supervise(file, args, spawnOptions, timeoutMs, memoryMb) {
         stdout: Buffer.concat(stdout).toString('utf8'),
         stderr: Buffer.concat(stderr).toString('utf8'),
       });
-      // A process that escaped the group may still hold the pipes open.
+      // A process the sweep missed may still hold the pipes open.
       const grace = setTimeout(() => {
         child.stdout.destroy();
         child.stderr.destroy();
         finish();
       }, 2000);
-      child.on('close', () => {
+      closed.then(() => {
         clearTimeout(grace);
         finish();
       });

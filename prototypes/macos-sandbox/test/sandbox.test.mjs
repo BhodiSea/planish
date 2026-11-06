@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -85,6 +87,41 @@ describe('the sandbox', { skip: !macos && 'Seatbelt and APFS are macOS only' }, 
     });
   }
 
+  test('a hard link to a file outside cannot be written through', async () => {
+    fs.writeFileSync(path.join(outside, 'linked'), 'original\n');
+    for (const file of [path.join(source, 'kept.txt'), path.join(outside, 'linked')]) {
+      const result = await sandboxed(`ln '${file}' hard; echo changed > hard`);
+      assert.match(result.stderr, /ln: hard: Operation not permitted/);
+      assert.equal(fs.readFileSync(file, 'utf8'), 'original\n');
+    }
+  });
+
+  test('a symbolic link to a file outside cannot be written through', async () => {
+    fs.writeFileSync(path.join(outside, 'target'), 'original\n');
+    const result = await sandboxed(`ln -s '${path.join(outside, 'target')}' link && echo changed > link`);
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Operation not permitted/);
+    assert.equal(fs.readFileSync(path.join(outside, 'target'), 'utf8'), 'original\n');
+  });
+
+  test('credentials in the home folder cannot be read', async () => {
+    const dir = path.join(os.homedir(), '.ssh');
+    const existed = fs.existsSync(dir);
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `planish-test-${process.pid}`);
+    fs.writeFileSync(file, 'secret\n');
+    try {
+      const baseline = await sandboxed(`cat '${file}'`, { sandbox: false });
+      assert.equal(baseline.stdout, 'secret\n');
+      const result = await sandboxed(`cat '${file}'; ls '${dir}'`);
+      assert.doesNotMatch(result.stdout, /secret|planish-test/);
+      assert.match(result.stderr, /Operation not permitted/);
+    } finally {
+      fs.rmSync(file);
+      if (!existed) fs.rmdirSync(dir);
+    }
+  });
+
   test('the same write succeeds without the sandbox, so the refusal is the sandbox\'s', async () => {
     const file = path.join(outside, 'baseline');
     const result = await sandboxed(`echo escaped > '${file}'`, { sandbox: false });
@@ -117,9 +154,12 @@ describe('the sandbox', { skip: !macos && 'Seatbelt and APFS are macOS only' }, 
     assert.equal(result.stdout.trim(), 'connected', result.stderr);
   });
 
+  // Without the sandbox, open would start the runner's browser, so this test
+  // checks Launch Services' refusal instead of comparing with a baseline.
   test('a URL cannot be handed to another app', async () => {
     const result = await sandboxed('/usr/bin/open https://example.com');
     assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /No application knows how to open URL/);
   });
 
   test('secrets in Planish\'s environment do not reach the project', async () => {
@@ -139,6 +179,26 @@ describe('the sandbox', { skip: !macos && 'Seatbelt and APFS are macOS only' }, 
     const pid = Number(result.stdout.trim());
     assert.ok(pid > 0);
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  });
+
+  const escape = (token, prefix = '') => `${prefix}/usr/bin/perl -MPOSIX -e 'fork and exit; setsid; fork and exit; sleep 600' ${token}`;
+  const running = (token) => execFileSync('/bin/ps', ['-A', '-ww', '-o', 'pid=,command='], { encoding: 'utf8' }).split('\n').filter((line) => line.includes(token));
+
+  test('a process that leaves the process group through setsid is stopped too', async () => {
+    const token = `planish-escape-${randomUUID()}`;
+    const result = await sandboxed(escape(token));
+    assert.equal(result.code, 0, result.stderr);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    assert.deepEqual(running(token), []);
+  });
+
+  test('a process that leaves the group and clears its environment escapes, a known limit', async () => {
+    const token = `planish-escape-${randomUUID()}`;
+    await sandboxed(escape(token, '/usr/bin/env -i '));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const left = running(token);
+    for (const line of left) process.kill(Number(line.trim().split(/\s+/)[0]), 'SIGKILL');
+    assert.equal(left.length, 1);
   });
 
   test('a run stops at its memory limit', async () => {

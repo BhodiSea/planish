@@ -2,11 +2,18 @@
 ; Seatbelt profile for running a project's code. sandbox.mjs passes RUN, the
 ; run's folder, which holds the clone and the scratch folders.
 ;
-; Adapted from the Codex CLI's seatbelt_base_policy.sbpl, copyright 2025 OpenAI,
-; under the Apache License 2.0: https://github.com/openai/codex
-; (codex-rs/sandboxing/src, commit ad1dbba32db4b0204d2f769c762f329dc37c8895).
-; Its sysctl, IOKit and IPC rules are kept; its network and scratch-folder rules
-; are not.
+; Adapted from the Codex CLI, copyright 2025 OpenAI, under the Apache License
+; 2.0: https://github.com/openai/codex, codex-rs/sandboxing/src at commit
+; ad1dbba32db4b0204d2f769c762f329dc37c8895. The rules come from
+; seatbelt_base_policy.sbpl and seatbelt_preferences_policy.sbpl, and the
+; denials of fcntls and XPC services from seatbelt.rs. Changed: reads, writes,
+; the /dev/stdout, /dev/stderr and /dev/fd writes and the Unix-socket rules are
+; Planish's, and the net.routetable. sysctls are dropped.
+;
+; Codex's credit for its base policy:
+; inspired by Chrome's sandbox policy:
+; https://source.chromium.org/chromium/chromium/src/+/main:sandbox/policy/mac/common.sb;l=273-319;drc=7b3962fe2e5fc9e2ee58000dc8fbf3429d84d3bd
+; https://source.chromium.org/chromium/chromium/src/+/main:sandbox/policy/mac/renderer.sb;l=64;drc=7b3962fe2e5fc9e2ee58000dc8fbf3429d84d3bd
 
 (version 1)
 
@@ -17,9 +24,10 @@
 (allow signal (target same-sandbox))
 (allow process-info* (target same-sandbox))
 
-; Reads are unrestricted, as in Codex's default: the toolchain, its caches and
-; the user's configuration stay where they are. Nothing read can leave, since
-; writes stay in RUN and there is no network.
+; Reads are allowed, as in Codex's default, so that the toolchain, its caches
+; and the user's configuration work where they are. A run's output reaches the
+; learner's agent, so what a test prints can leave the device: sandbox.mjs
+; appends denials for where credentials usually live.
 (allow file-read*)
 
 (allow file-write* (subpath (param "RUN")))
