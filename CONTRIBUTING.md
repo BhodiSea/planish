@@ -19,7 +19,7 @@ Every commit carries a `Signed-off-by` line (`git commit -s`). It certifies the 
 
 ## Keep upstream edits few
 
-Planish's own code lives in its own folders. An edit to a file that comes from VS Code or VSCodium is fenced with marker comments, so updates from upstream stay easy to merge. The [fork spec](docs/spec/fork.md) has the rules.
+Planish's own code lives in its own folders. An edit to a file that comes from VS Code or VSCodium is fenced with marker comments, so updates from upstream stay easy to merge. The [fork spec](docs/spec/fork.md) has the rules, and the [sync guide](docs/sync.md) the steps for taking a newer VS Code release.
 
 ## AI tools
 

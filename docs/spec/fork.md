@@ -24,7 +24,7 @@ New files, Planish's patches included, open with `SPDX-License-Identifier: Apach
 VS Code has released weekly since [1.111][v1111] on 9 March 2026; from May to October 2026, VSCodium released on five of those versions, 2 to 9 weeks apart ([releases][vscodium-releases]).
 
 - "Nears" means within four weeks of the end date on [Electron's schedule][el-sched]. Electron supports its three newest major versions ([timelines][el-timelines]); VS Code 1.144.0 ships Electron 43.8.3 ([.npmrc][npmrc-1144]), whose support is scheduled to end on 5 January 2027.
-- Keeping VSCodium's history makes taking its changes a git merge; Planish's patches are then rebased with `dev/update_patches.sh`, tested, and shipped within two weeks of VSCodium's release. Ahead of VSCodium, Planish repairs VSCodium's patches itself, then takes VSCodium's repairs when VSCodium catches up. A guide sets out these steps for a person or a coding agent, like Positron's [upstream merge skill][positron-skill].
+- Keeping VSCodium's history makes taking its changes a git merge; Planish's patches are then rebased with `dev/update_patches.sh`, tested, and shipped within two weeks of VSCodium's release. Ahead of VSCodium, Planish repairs VSCodium's patches itself, then takes VSCodium's repairs when VSCodium catches up. A [guide](../sync.md) sets out these steps for a person or a coding agent, like Positron's [upstream merge skill][positron-skill].
 
 ## Microsoft's agent stack
 
@@ -50,7 +50,7 @@ Looked up by ID on 4 November 2026, 85 of the Marketplace's 100 most-installed e
 
 These are VS Code's unfinished extension APIs. An extension that is not built in may use one only if `product.json` allows it, and otherwise runs without it; a built-in extension uses those it declares, unless a `product.json` entry replaces its list ([source][proposed-api]). In the same count, 15 of the 100 most-installed extensions declared some.
 
-Planish starts from VSCodium's MIT allow-list of 65 entries ([product.json][vscodium-product]), which includes the two Codex declares, `chatSessionsProvider` and `languageModelProxy`, and keeps its own built-in extensions off it. At each sync a script compares the list with what the most-installed extensions declare and proposes changes as pull requests.
+Planish starts from VSCodium's MIT allow-list of 65 entries ([product.json][vscodium-product]), which includes the two Codex declares, `chatSessionsProvider` and `languageModelProxy`, and keeps its own built-in extensions off it. At each sync a script, `dev/allow_list.py`, compares the list with what the most-installed extensions declare on Open VSX and proposes additions as pull requests.
 
 ### Stand-ins for Microsoft's extensions
 
