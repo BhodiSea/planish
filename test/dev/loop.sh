@@ -51,8 +51,14 @@ trap 'kill "${WATCH}" 2> /dev/null || true; tail -n 40 watch.log' EXIT
 wait_for 'grep -q "Finished transpilation" watch.log' 900
 wait_for "grep -qs before '${OUT}'" 30
 
+# The watcher reports nothing until it has scanned src/, which on Linux takes a while after
+# the transpile ends, so the edit is saved again until it shows.
 sed -i.bak 's/before/after/' "src/stable/${PART}" "src/stable/${EXTENSION}/main.js"
-wait_for "grep -qs after '${OUT}'" 60
+for (( i = 0; i < 18; i++ )); do
+  if wait_for "grep -qs after '${OUT}'" 10; then break; fi
+  cp "src/stable/${PART}" "src/stable/${PART}.new" && mv "src/stable/${PART}.new" "src/stable/${PART}"
+done
+grep -qs after "${OUT}"
 echo "watch transpiled the edit to ${OUT}"
 kill "${WATCH}"
 
