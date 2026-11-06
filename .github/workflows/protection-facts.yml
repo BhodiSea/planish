@@ -78,6 +78,10 @@ jobs:
           /usr/bin/git --version
           prototypes/protection-facts/githooks.sh /usr/bin/git "Apple (/usr/bin/git)"
           prototypes/protection-facts/githooks.sh "$( brew --prefix )/bin/git" Homebrew
+          CLT=/Library/Developer/CommandLineTools/usr/bin/git
+          if [[ -x "${CLT}" ]]; then
+            prototypes/protection-facts/githooks.sh "${CLT}" "Command line tools"
+          fi
 
       - name: The runner's git
         if: runner.os != 'macOS'

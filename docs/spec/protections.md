@@ -157,7 +157,7 @@ A prototype settled these on 6 November 2026 ([results](../../prototypes/protect
 - **Snapshots per command are affordable** with a shadow git repository that leaves out ignored folders: 0.1–0.2 s after a typical command on a 100,000-file project, on APFS, NTFS and ext4 alike, once the first snapshot (10–33 s) is taken. A full copy takes 3–47 s each time and an APFS clone 9–17 s, so neither suits every command.
 - **Cline runs commands in VS Code's terminals by default**, where Planish's fence can reach them, unless the user switches it to running them in the background as child processes of the extension host. Kilo Code 7 does not ([above](#what-each-agent-adds)).
 - **Codex's hooks reach beyond shell commands**, to edits through `apply_patch`, MCP tools and its other local tools, but not hosted tools such as web search; they refuse or rewrite a call, and `ask` is not supported yet ([hooks][codex-hooks]).
-- **Apple's git is too old for hooks set in configuration**: the newest command line tools, for Xcode 26.6, ship git 2.50.1, and only git 2.54 and later run such hooks. With git 2.56, `--no-verify` skips them on commit and push, so Planish's secret check cannot rest on git's hooks alone.
+- **Apple's git is too old for hooks set in configuration**: Xcode 26.6's git is 2.50.1, and only git 2.54 and later run such hooks. With git 2.56, `--no-verify` skips them on commit and push, so Planish's secret check cannot rest on git's hooks alone.
 
 The first two below decide how far the defaults reach.
 
