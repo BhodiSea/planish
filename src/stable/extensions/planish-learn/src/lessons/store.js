@@ -16,10 +16,8 @@ function escapeIgnore(text) {
   return text.replace(/[\\*?[\]]/g, '\\$&').replace(/^[#!]/, '\\$&').replace(/ $/, '\\ ');
 }
 
-/**
- * Lists .planish/ in the info/exclude file of the git repository that holds folder, and
- * returns that file's path, or undefined when folder is not in a repository.
- */
+// Lists .planish/ in the info/exclude file of the git repository that holds folder, and
+// returns that file's path, or undefined when folder is not in a repository.
 async function excludeLessons(folder, git = 'git') {
   let stdout;
   try {
@@ -58,10 +56,8 @@ async function directory(parent, name) {
   return dir;
 }
 
-/**
- * Validates lesson and writes it to .planish/lessons/<id>.json in folder, the project's
- * root, after listing .planish/ in git's info/exclude. Throws, writing nothing, if the lesson fails.
- */
+// Validates lesson and writes it to .planish/lessons/<id>.json in folder, the project's
+// root, after listing .planish/ in git's info/exclude. Throws, writing nothing, if it fails.
 async function writeLesson(folder, lesson, git = 'git') {
   const errors = validateLesson(lesson);
   if (errors.length) {
