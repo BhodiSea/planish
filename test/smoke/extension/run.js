@@ -45,8 +45,8 @@ async function smoke() {
   await extension.activate();
 
   // This extension declares the proposal, which is not enough for one that is not built in.
-  await rejects(() => vscode.env.openAgentLink(link('anthropic.claude-code', '/open')),
-    /CANNOT use API proposal: planishAgentLinks\b/, 'openAgentLink, called by an extension that is not built in,');
+  await rejects(() => own.openAgentLink(link('anthropic.claude-code', '/open')),
+    /Extension 'planish\.planish-smoke' CANNOT use API proposal: planishAgentLinks\b/, 'openAgentLink, called by an extension that is not built in,');
   const commands = (await vscode.commands.getCommands()).filter(id => /agent.?link/i.test(id));
   if (commands.length) {
     throw new Error(`commands any extension can run may open agents' links: ${commands.join(', ')}`);
@@ -62,7 +62,7 @@ async function agents() {
     if (!extension) {
       throw new Error(`${id} is not installed`);
     }
-    const handled = await within(60, vscode.env.openAgentLink(link(id, path)), `Opening ${link(id, path)}`);
+    const handled = await within(60, own.openAgentLink(link(id, path)), `Opening ${link(id, path)}`);
     if (handled !== true) {
       throw new Error(`${link(id, path)} was not handled`);
     }
@@ -71,11 +71,14 @@ async function agents() {
   }
 
   for (const uri of [link('planish.planish-smoke', '/'), vscode.Uri.parse('https://anthropic.claude-code/open')]) {
-    await rejects(() => vscode.env.openAgentLink(uri), /Not a link to Claude Code or Codex/, `openAgentLink(${uri})`);
+    await rejects(() => own.openAgentLink(uri), /Not a link to Claude Code or Codex/, `openAgentLink(${uri})`);
   }
 }
 
+let own;
+
 exports.run = async () => {
+  own = await vscode.extensions.getExtension('planish.planish-smoke').activate();
   await { smoke, agents }[process.env.SMOKE_MODE]();
   fs.writeFileSync(process.env.SMOKE_PASSED, '');
 };

@@ -75,7 +75,7 @@ Recommendations name only extensions on Open VSX under a verified publisher, so 
 
 - In August 2025 the malicious-extension list Open VSX forks use flagged Claude Code's ID after a malware report, and those forks uninstalled the genuine extension automatically ([claude-code#5762][cc-5762]; [the change][pe-945]). Planish's own list takes reviewed overrides to stop that.
 - Each release records a tested version of each extension, with its SHA-256, and offers it in one step when a newer one breaks. Planish points at those versions on Open VSX rather than hosting copies: Claude Code's licence reserves all rights ([Open VSX][ovsx-claude]), and Codex's refers to a licence file of its own ([Open VSX][ovsx-codex]).
-- **Unknown.** How Open VSX marking Codex's builds as pre-releases affects installing and updating it.
+- Open VSX lists each Codex build twice: as a release and, with a higher version number, as a pre-release (26.1021.22027 and 26.51021.22027, both of 26 October 2026). In Planish's CI on 6 November 2026, installing Codex without a version gave the newest release, and `--update-extensions` kept each install on its channel: a release moved to the newest release, and a pre-release installed with `--pre-release` to the newest pre-release. Codex also installs `openai.codex-audio`. CI repeats these steps for both extensions on every platform (`test/smoke/agents.sh`).
 
 ## Services Microsoft runs
 
