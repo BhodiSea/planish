@@ -1,0 +1,14 @@
+{
+  "name": "planish-smoke-other",
+  "publisher": "planish",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "main": "./main.js",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "enabledApiProposals": [
+    "planishEditSource"
+  ]
+}

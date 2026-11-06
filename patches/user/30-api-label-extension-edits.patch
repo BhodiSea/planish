@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: Apache-2.0
+diff --git a/src/vs/editor/common/textModelEditSource.ts b/src/vs/editor/common/textModelEditSource.ts
+index e3ebdd3..4a99d14 100644
+--- a/src/vs/editor/common/textModelEditSource.ts
++++ b/src/vs/editor/common/textModelEditSource.ts
+@@ -216,6 +216,10 @@ export const EditSources = {
+ 	snippet: () => createEditSource({ source: 'snippet' } as const),
+ 	suggest: (data: { providerId: ProviderId | undefined }) => createEditSource({ source: 'suggest', ...toProperties(data.providerId) } as const),
+ 
++	// --- Start Planish ---
++	extensionEdit: (data: { extensionId: string; extensionVersion: string; kind: string | undefined }) => createEditSource({ source: 'extensionEdit', $extensionId: data.extensionId, $extensionVersion: data.extensionVersion, kind: data.kind } as const),
++	// --- End Planish ---
++
+ 	codeAction: (data: { kind: string | undefined; providerId: ProviderId | undefined }) => createEditSource({ source: 'codeAction', $kind: data.kind, ...toProperties(data.providerId) } as const)
+ };
+ 
+diff --git a/src/vs/workbench/api/browser/mainThreadBulkEdits.ts b/src/vs/workbench/api/browser/mainThreadBulkEdits.ts
+index a823772..78993c0 100644
+--- a/src/vs/workbench/api/browser/mainThreadBulkEdits.ts
++++ b/src/vs/workbench/api/browser/mainThreadBulkEdits.ts
+@@ -10,6 +10,10 @@ import { WorkspaceEdit } from '../../../editor/common/languages.js';
+ import { ILogService } from '../../../platform/log/common/log.js';
+ import { IUriIdentityService } from '../../../platform/uriIdentity/common/uriIdentity.js';
+ import { IWorkspaceCellEditDto, IWorkspaceEditDto, IWorkspaceFileEditDto, MainContext, MainThreadBulkEditsShape } from '../common/extHost.protocol.js';
++// --- Start Planish ---
++import { IExtensionEditSourceDto } from '../common/extHost.protocol.js';
++import { EditSources } from '../../../editor/common/textModelEditSource.js';
++// --- End Planish ---
+ import { ResourceNotebookCellEdit } from '../../contrib/bulkEdit/browser/bulkCellEdits.js';
+ import { CellEditType } from '../../contrib/notebook/common/notebookCommon.js';
+ import { IExtHostContext, extHostNamedCustomer } from '../../services/extensions/common/extHostCustomers.js';
+@@ -28,9 +32,16 @@ export class MainThreadBulkEdits implements MainThreadBulkEditsShape {
+ 
+ 	dispose(): void { }
+ 
+-	$tryApplyWorkspaceEdit(dto: SerializableObjectWithBuffers<IWorkspaceEditDto>, undoRedoGroupId?: number, isRefactoring?: boolean): Promise<boolean> {
++	// --- Start Planish ---
++	// $tryApplyWorkspaceEdit(dto: SerializableObjectWithBuffers<IWorkspaceEditDto>, undoRedoGroupId?: number, isRefactoring?: boolean): Promise<boolean> {
++	$tryApplyWorkspaceEdit(dto: SerializableObjectWithBuffers<IWorkspaceEditDto>, undoRedoGroupId?: number, isRefactoring?: boolean, source?: IExtensionEditSourceDto): Promise<boolean> {
++		// --- End Planish ---
+ 		const edits = reviveWorkspaceEditDto(dto.value, this._uriIdentService);
+-		return this._bulkEditService.apply(edits, { undoRedoGroupId, respectAutoSaveConfig: isRefactoring }).then((res) => res.isApplied, err => {
++		// --- Start Planish ---
++		// return this._bulkEditService.apply(edits, { undoRedoGroupId, respectAutoSaveConfig: isRefactoring }).then((res) => res.isApplied, err => {
++		const reason = source && EditSources.extensionEdit(source);
++		return this._bulkEditService.apply(edits, { undoRedoGroupId, respectAutoSaveConfig: isRefactoring, reason }).then((res) => res.isApplied, err => {
++			// --- End Planish ---
+ 			this._logService.warn(`IGNORING workspace edit: ${err}`);
+ 			return false;
+ 		});
+diff --git a/src/vs/workbench/api/common/extHost.protocol.ts b/src/vs/workbench/api/common/extHost.protocol.ts
+index 722cc97..a750c4a 100644
+--- a/src/vs/workbench/api/common/extHost.protocol.ts
++++ b/src/vs/workbench/api/common/extHost.protocol.ts
+@@ -341,8 +341,19 @@ export interface ITextDocumentShowOptions {
+ 	selection?: IRange;
+ }
+ 
++// --- Start Planish ---
++export interface IExtensionEditSourceDto {
++	extensionId: string;
++	extensionVersion: string;
++	kind: string | undefined;
++}
++
++// --- End Planish ---
+ export interface MainThreadBulkEditsShape extends IDisposable {
+-	$tryApplyWorkspaceEdit(workspaceEditDto: SerializableObjectWithBuffers<IWorkspaceEditDto>, undoRedoGroupId?: number, isRefactoring?: boolean): Promise<boolean>;
++	// --- Start Planish ---
++	// $tryApplyWorkspaceEdit(workspaceEditDto: SerializableObjectWithBuffers<IWorkspaceEditDto>, undoRedoGroupId?: number, isRefactoring?: boolean): Promise<boolean>;
++	$tryApplyWorkspaceEdit(workspaceEditDto: SerializableObjectWithBuffers<IWorkspaceEditDto>, undoRedoGroupId?: number, isRefactoring?: boolean, source?: IExtensionEditSourceDto): Promise<boolean>;
++	// --- End Planish ---
+ }
+ 
+ export interface MainThreadTextEditorsShape extends IDisposable {
+diff --git a/src/vs/workbench/api/common/extHostBulkEdits.ts b/src/vs/workbench/api/common/extHostBulkEdits.ts
+index a128473..54f8ce2 100644
+--- a/src/vs/workbench/api/common/extHostBulkEdits.ts
++++ b/src/vs/workbench/api/common/extHostBulkEdits.ts
+@@ -10,6 +10,9 @@ import { IExtHostRpcService } from './extHostRpcService.js';
+ import { WorkspaceEdit } from './extHostTypeConverters.js';
+ import { SerializableObjectWithBuffers } from '../../services/extensions/common/proxyIdentifier.js';
+ import type * as vscode from 'vscode';
++// --- Start Planish ---
++import { isProposedApiEnabled } from '../../services/extensions/common/extensions.js';
++// --- End Planish ---
+ 
+ export class ExtHostBulkEdits {
+ 
+@@ -30,6 +33,13 @@ export class ExtHostBulkEdits {
+ 
+ 	applyWorkspaceEdit(edit: vscode.WorkspaceEdit, extension: IExtensionDescription, metadata: vscode.WorkspaceEditMetadata | undefined): Promise<boolean> {
+ 		const dto = new SerializableObjectWithBuffers(WorkspaceEdit.from(edit, this._versionInformationProvider));
+-		return this._proxy.$tryApplyWorkspaceEdit(dto, undefined, metadata?.isRefactoring ?? false);
++		// --- Start Planish ---
++		// return this._proxy.$tryApplyWorkspaceEdit(dto, undefined, metadata?.isRefactoring ?? false);
++		return this._proxy.$tryApplyWorkspaceEdit(dto, undefined, metadata?.isRefactoring ?? false, {
++			extensionId: extension.identifier.value,
++			extensionVersion: extension.version,
++			kind: isProposedApiEnabled(extension, 'planishEditSource') ? metadata?.userInput : undefined,
++		});
++		// --- End Planish ---
+ 	}
+ }
+diff --git a/src/vscode-dts/vscode.proposed.planishEditSource.d.ts b/src/vscode-dts/vscode.proposed.planishEditSource.d.ts
+new file mode 100644
+index 0000000..35e2392
+--- /dev/null
++++ b/src/vscode-dts/vscode.proposed.planishEditSource.d.ts
+@@ -0,0 +1,15 @@
++// --- Start Planish ---
++// SPDX-License-Identifier: Apache-2.0
++
++declare module 'vscode' {
++
++	export interface WorkspaceEditMetadata {
++		/**
++		 * How the user made this edit in the extension's own editor, such as a webview: by
++		 * typing, pasting, cutting or composing with an input method. Edit events report it as
++		 * the `kind` of an `extensionEdit`.
++		 */
++		readonly userInput?: 'type' | 'paste' | 'cut' | 'compositionType' | 'compositionEnd';
++	}
++}
++// --- End Planish ---

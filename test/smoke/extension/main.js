@@ -6,4 +6,5 @@ const vscode = require('vscode');
 exports.activate = context => ({
   logUri: context.logUri,
   openAgentLink: uri => vscode.env.openAgentLink(uri),
+  vscode,
 });
