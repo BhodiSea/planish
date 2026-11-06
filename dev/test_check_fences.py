@@ -489,8 +489,10 @@ class CheckFences(unittest.TestCase):
       '  cp -f resources/win32/code.ico "resources/win32/sessions.ico"  # stands in\n'
       'cat ../LICENSE-APACHE >> LICENSE.txt\n'
       '# --- End Planish ---\n')
+    named = 'LICENSE.txt\nbuild/lib/electron.ts\nresources/win32/sessions.ico\n'  # once each
     code, out = self.run_check(
-      {'prepare_vscode.sh': script + block + tail}, upstream={'prepare_vscode.sh': script + tail})
+      {'prepare_vscode.sh': script + block + tail, 'dev/check_build_edits.sh': named * 2},
+      upstream={'prepare_vscode.sh': script + tail})
     self.assertEqual(code, 0, out)
     self.assert_lines(
       out,
@@ -498,11 +500,15 @@ class CheckFences(unittest.TestCase):
       '    - LICENSE.txt\n    - build/lib/electron.ts\n    - resources/win32/sessions.ico\n',
       'Upstream files Planish edits: 4')
     broken = block.replace('code.ico "', 'code.ico ').replace('cat ', 'sed -i "s|e|f|" cli/build.rs\ncat ')
-    code, out = self.run_check({'prepare_vscode.sh': script + broken}, upstream={'prepare_vscode.sh': script})
+    code, out = self.run_check(
+      {'prepare_vscode.sh': script + broken, 'dev/check_build_edits.sh': named},
+      upstream={'prepare_vscode.sh': script})
     self.assertEqual(code, 1, out)
     self.assert_lines(
       out, '- prepare_vscode.sh:11: replace, cp or cat that this check cannot read',
-      '- prepare_vscode.sh:12: a line this check cannot list', 'Errors: 2\n')
+      '- prepare_vscode.sh:12: a line this check cannot list',
+      '- prepare_vscode.sh:10: dev/check_build_edits.sh names build/lib/electron.ts fewer times than',
+      'Errors: 3\n')
 
   def test_untrusted_names_start_no_workflow_command(self):
     name = '::error file=x::boom\n##[warning]a.sh'

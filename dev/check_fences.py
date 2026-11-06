@@ -14,7 +14,8 @@ renaming it, unchanged, to .patch.no. Names that differ only in case are refused
 macOS and Windows treat them as one. Strict JSON holds no comments: VS Code's is changed
 by JSON Merge Patches in patches/user/json/, which dev/merge_json.sh merges at build time.
 Prints Planish's JSON edits and the upstream files it edits, with the VS Code files that
-the fences in prepare_vscode.sh change with replace, cp or cat; exits 1 on errors.
+the fences in prepare_vscode.sh change with replace, cp or cat, which dev/check_build_edits.sh
+must name once for each edit; exits 1 on errors.
 """
 import json
 import os
@@ -31,6 +32,7 @@ IMAGES = ('.bmp', '.gif', '.icns', '.ico', '.jpg', '.png', '.svg', '.xpm')  # re
 OVERLAYS = 'patches/user/json/'
 DELETE_LIST = re.compile(r'patches/[^/]+\.json')  # prepare_vscode.sh deletes the paths each lists
 BUILD_SCRIPT = 'prepare_vscode.sh'
+BUILD_CHECK = 'dev/check_build_edits.sh'  # checks the results of its edits
 # Its fences hold only edits whose last word is the file, comments and the JSON merge.
 BUILD_EDIT = re.compile(r'[ \t]*(replace|cp|cat)[ \t]')
 BUILD_OTHER = re.compile(r'[ \t]*(#.*|\.\./dev/merge_json\.sh)?[ \t\r]*')
@@ -319,15 +321,16 @@ def deleted_paths(data):
 
 
 def build_edits(data):
-  """The files that the fences in prepare_vscode.sh change with replace, cp or cat, each called
-  at the start of a line, and errors for the lines there that this cannot read or list."""
-  files, errors, inside = set(), [], False
+  """{file: its lines} for the files that the fences in prepare_vscode.sh change with replace, cp
+  or cat, each called at the start of a line, and errors for the lines there that this cannot
+  read or list."""
+  files, errors, inside = {}, [], False
   for n, line in enumerate(data.decode(errors='replace').split('\n'), 1):
     if m := MARKERS['hash'].fullmatch(line):
       inside = m[1] == 'Start'
     elif inside and BUILD_EDIT.match(line):
       try:
-        files.add(shlex.split(line, comments=True)[-1])
+        files.setdefault(shlex.split(line, comments=True)[-1], []).append(n)
       except ValueError:
         errors.append((n, 'replace, cp or cat that this check cannot read: keep each to one line'))
     elif inside and not BUILD_OTHER.fullmatch(line):
@@ -366,7 +369,7 @@ def main():
   disabled = {path for _, mode, _, new, status, path in changes
               if status == 'A' and mode not in LINKS and path.endswith('.no')
               and PATCH.fullmatch(path) and deleted.get(path[:-3]) == new}
-  errors, json_edits, vs_code, build, made = case_clashes(base, 'HEAD'), [], {}, set(), {}
+  errors, json_edits, vs_code, build, made = case_clashes(base, 'HEAD'), [], {}, {}, {}
   edited = {'changed': [], 'replaced': [], 'binary': [], 'version pin': [], 'disabled': [],
             'deleted': []}
   for old_mode, new_mode, old, new, status, path in changes:
@@ -438,7 +441,10 @@ def main():
         found = check_text(path, old, new, data)
       if path == BUILD_SCRIPT:
         build, unread = build_edits(data)
-        found += unread
+        checks = git('cat-file', 'blob', f'HEAD:{BUILD_CHECK}').decode(errors='replace')
+        found += unread + [
+          (ns[-1], f'{BUILD_CHECK} names {q(t)} fewer times than this edits it: check each edit')
+          for t, ns in build.items() if checks.count(t) < len(ns)]
       errors += [(path, n, msg) for n, msg in sorted(found)]
   errors += [
     (made[t, 'A'], 1, f'{q(t)}: deleted by {q(made[t, "D"])} and created again, which drops its '

@@ -53,6 +53,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./build.sh
 
+      - name: Check the build-time edits
+        run: ./dev/check_build_edits.sh
+
       - name: Check the app's names and notices
         run: |
           contents=VSCode-darwin-arm64/Planish.app/Contents
@@ -67,6 +70,11 @@ jobs:
           check CFBundleIdentifier ai.cogveralabs.planish
           check CFBundleName Planish
           check CFBundleURLTypes.0.CFBundleURLSchemes.0 planish
+          copyright="$(plutil -extract NSHumanReadableCopyright raw "${contents}/Info.plist" || true)"
+          if [[ "${copyright}" != *"Cogvera Labs"* ]]; then
+            echo "::error::Info.plist's NSHumanReadableCopyright is \"${copyright}\", which does not name Cogvera Labs"
+            status=1
+          fi
           jq -e '.dataFolderName == ".planish"' "${contents}/Resources/app/product.json" > /dev/null || { echo "::error::Resources/app/product.json's dataFolderName is not .planish"; status=1; }
           for file in app/product.json app/LICENSE.txt app/ThirdPartyNotices.txt LICENSES.chromium.html; do
             if [[ ! -f "${contents}/Resources/${file}" ]]; then
@@ -131,6 +139,9 @@ jobs:
           SHOULD_BUILD: "yes"
           GITHUB_TOKEN: ${{ github.token }}
         run: ./build.sh
+
+      - name: Check the build-time edits
+        run: ./dev/check_build_edits.sh
 
       - name: Compress vscode folder
         run: |
@@ -234,6 +245,9 @@ jobs:
           SHOULD_BUILD: "yes"
           GITHUB_TOKEN: ${{ github.token }}
         run: ./build.sh
+
+      - name: Check the build-time edits
+        run: ./dev/check_build_edits.sh
 
       - name: Compress vscode folder
         run: |
