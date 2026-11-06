@@ -44,10 +44,10 @@ def request(url, body=None):
 
 def most_installed(top):
   """The IDs of the Marketplace's top most-installed VS Code extensions, most first."""
-  query = {'filters': [{
-    'criteria': [{'filterType': 8, 'value': 'Microsoft.VisualStudio.Code'},
-                 {'filterType': 12, 'value': '4096'}],  # leave out unpublished ones
-    'pageNumber': 1, 'pageSize': top, 'sortBy': 4, 'sortOrder': 0}], 'flags': 0}
+  criteria = [{'filterType': 8, 'value': 'Microsoft.VisualStudio.Code'},
+              {'filterType': 12, 'value': '4096'}]  # leave out unpublished ones
+  query = {'filters': [{'criteria': criteria, 'pageNumber': 1, 'pageSize': top,
+                        'sortBy': 4, 'sortOrder': 0}], 'flags': 0}
   found = request(GALLERY, query)['results'][0]['extensions']
   return [f'{e["publisher"]["publisherName"]}.{e["extensionName"]}' for e in found]
 

@@ -46,8 +46,7 @@ class Propose(unittest.TestCase):
   def test_undoes_a_removal_declared_again(self):
     new, changes = allow_list.propose(VSCODIUM, {'ms-python.python': None},
                                       {'ms-python.python': ['terminalShellEnv']})
-    self.assertEqual((new, changes),
-                     ({}, [('ms-python.python', None, ['terminalShellEnv'])]))
+    self.assertEqual((new, changes), ({}, [('ms-python.python', None, ['terminalShellEnv'])]))
 
 
 class Declared(unittest.TestCase):
@@ -59,8 +58,8 @@ class Declared(unittest.TestCase):
 
   def test_reads_the_manifest(self):
     manifest = 'https://example.test/package.json'
-    pages = {allow_list.OPEN_VSX + 'a/b': {'files': {'manifest': manifest}},
-             manifest: {'enabledApiProposals': ['css']}}
+    pages = {allow_list.OPEN_VSX + 'a/b': {'files': {'manifest': manifest}}}
+    pages[manifest] = {'enabledApiProposals': ['css']}
     self.assertEqual(allow_list.declared('a.b', self.fetch(pages)), ['css'])
     pages[manifest] = {}
     self.assertEqual(allow_list.declared('a.b', self.fetch(pages)), [])
