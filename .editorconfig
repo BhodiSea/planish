@@ -41,4 +41,10 @@ tab_width = 4
 # The licence text keeps Apache's published indentation.
 indent_style = unset
 indent_size = unset
+
+[src/{stable,insider}/**.ts]
+# VS Code's own style, inside its tree.
+indent_style = tab
+indent_size = 4
+tab_width = 4
 # --- End Planish ---

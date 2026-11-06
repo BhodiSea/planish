@@ -17,6 +17,11 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
   export NODE_OPTIONS="--max-old-space-size=${MAX_OLD_SPACE_SIZE}"
   export VSCODE_PUBLISH_COUNTER=1
 
+  # --- Start Planish ---
+  # Lists the API proposals Planish's patches add, which the next task checks for.
+  npm run gulp compile-api-proposal-names
+  # --- End Planish ---
+
   npm run gulp vscode-min-prepack
 
   if [[ "${OS_NAME}" == "osx" ]]; then

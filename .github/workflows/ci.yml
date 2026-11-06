@@ -104,6 +104,10 @@ jobs:
         timeout-minutes: 10
         run: bash test/smoke/smoke.sh VSCode-darwin-arm64/*.app
 
+      - name: Agent extensions
+        timeout-minutes: 20
+        run: bash test/smoke/agents.sh VSCode-darwin-arm64/*.app
+
   windows-compile:
     name: Windows x64 (compile)
     runs-on: windows-2022
@@ -204,6 +208,10 @@ jobs:
       - name: Smoke test
         timeout-minutes: 10
         run: bash test/smoke/smoke.sh VSCode-win32-x64
+
+      - name: Agent extensions
+        timeout-minutes: 20
+        run: bash test/smoke/agents.sh VSCode-win32-x64
 
   linux-compile:
     name: Linux x64 (compile)
@@ -335,3 +343,7 @@ jobs:
       - name: Smoke test
         timeout-minutes: 10
         run: xvfb-run -a bash test/smoke/smoke.sh VSCode-linux-x64
+
+      - name: Agent extensions
+        timeout-minutes: 20
+        run: xvfb-run -a bash test/smoke/agents.sh VSCode-linux-x64
