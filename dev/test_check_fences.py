@@ -375,6 +375,58 @@ class CheckFences(unittest.TestCase):
       '- patches/01-new.patch:7: src/new.ts: line added outside a fence',
       'Errors: 3\n')
 
+  def test_rejects_files_deleted_then_created_again_however_it_happens(self):
+    brand = VSCODIUM['patches/00-brand.patch']
+    fenced = ('// --- Start Planish ---', 'evil();', '// --- End Planish ---')
+    delete = SPDX + (
+      'diff --git a/src/d.ts b/src/d.ts\ndeleted file mode 100644\n--- a/src/d.ts\n+++ /dev/null\n'
+      '@@ -1 +0,0 @@\n-start();\n')
+    block = '# --- Start Planish ---\ncp -f a.ico src/vs/old/b.ico\n# --- End Planish ---\n'
+    code, out = self.run_check({
+      'patches/90-remove.json': '[{"action": "remove", "paths": ["src/vs/old/", "src/e.ts"]}]\n',
+      'patches/user/01-delete.patch': delete,
+      'patches/user/02-create.patch': SPDX + new_file('src/vs/old/a.ts', *fenced)
+      + new_file('src/e.ts', *fenced) + new_file('src/vs/older.ts', *fenced),
+      'patches/00-brand.patch': brand + new_file('src/d.ts', *fenced)
+      + delete[len(SPDX):].replace('d.ts', 'f.ts'),
+      'patches/user/03-create.patch': SPDX + new_file('src/f.ts', *fenced),
+      'prepare_vscode.sh': '\n' + block,
+      'dev/check_build_edits.sh': 'copied src/vs/old/b.ico a.ico x\n',
+    }, upstream={'prepare_vscode.sh': '\n'})
+    self.assertEqual(code, 1, out)
+    again = 'and created again, which drops its lines unmarked'
+    self.assert_lines(
+      out,
+      f'- patches/user/02-create.patch:1: src/vs/old/a.ts: deleted by patches/90-remove.json {again}',
+      f'- patches/user/02-create.patch:1: src/e.ts: deleted by patches/90-remove.json {again}',
+      f'- patches/00-brand.patch:1: src/d.ts: deleted by patches/user/01-delete.patch {again}',
+      f'- patches/user/03-create.patch:1: src/f.ts: deleted by patches/00-brand.patch {again}',
+      f'- prepare_vscode.sh:3: src/vs/old/b.ico: deleted by patches/90-remove.json {again}',
+      'Errors: 5\n')
+
+  def test_rejects_removed_lines_that_hold_a_comment_closer(self):
+    code, out = self.run_check({
+      'docs/howto-build.md': (
+        '# How to build\n<!-- --- Start Planish --- -->\n<!-- <!-- old --> -->\n'
+        '<!-- --- End Planish --- -->\n'),
+      'build/a.css': 'a {}\n',
+      'build/a.xml': '<a>\n<!-- Start Planish -->\n<!-- <b c="--"/> -->\n<!-- End Planish -->\n</a>\n',
+      'build/a.sh': 'a\n',
+      'patches/user/01-css.patch': user_patch(removed=('/* end */',)).replace('src/b.ts', 'src/b.css'),
+    }, upstream={
+      'docs/howto-build.md': '# How to build\n<!-- old -->\n', 'build/a.css': 'a {}\n/* x */\n',
+      'build/a.xml': '<a>\n<b c="--"/>\n</a>\n', 'build/a.sh': 'a\n# */\n'})
+    self.assertEqual(code, 1, out)
+    place = 'so no comment can keep it: leave it in place'
+    self.assert_lines(
+      out,
+      f"- docs/howto-build.md:2: VSCodium's line 2 removed, but it holds \"-->\", {place}",
+      f"- build/a.css:1: VSCodium's line 2 removed, but it holds \"*/\", {place}",
+      f"- build/a.xml:2: VSCodium's line 2 removed, but it holds \"--\", {place}",
+      "- build/a.sh:1: VSCodium's line 2 removed outside a fence\n",
+      f'- patches/user/01-css.patch:7: src/b.css: line removed, but it holds "*/", {place}',
+      'Errors: 5\n')
+
   def test_rejects_names_that_differ_only_in_case(self):
     code, out = self.run_check({
       'Patches/user/01-x.patch': Indexed(user_patch('import y;')),
@@ -489,7 +541,10 @@ class CheckFences(unittest.TestCase):
       '  cp -f resources/win32/code.ico "resources/win32/sessions.ico"  # stands in\n'
       'cat ../LICENSE-APACHE >> LICENSE.txt\n'
       '# --- End Planish ---\n')
-    named = 'LICENSE.txt\nbuild/lib/electron.ts\nresources/win32/sessions.ico\n'  # once each
+    named = (
+      'expect LICENSE.txt "Apache" "not appended"\n'
+      "  expect build/lib/electron.ts 'a' 'b'\n"
+      'copied resources/win32/sessions.ico resources/win32/code.ico "not copied"\n')  # once each
     code, out = self.run_check(
       {'prepare_vscode.sh': script + block + tail, 'dev/check_build_edits.sh': named * 2},
       upstream={'prepare_vscode.sh': script + tail})
@@ -499,16 +554,24 @@ class CheckFences(unittest.TestCase):
       '  VS Code files edited at build time: 3\n'
       '    - LICENSE.txt\n    - build/lib/electron.ts\n    - resources/win32/sessions.ico\n',
       'Upstream files Planish edits: 4')
-    broken = block.replace('code.ico "', 'code.ico ').replace('cat ', 'sed -i "s|e|f|" cli/build.rs\ncat ')
+    broken = block.replace('code.ico "', 'code.ico ').replace(
+      'cat ', 'sed -i "s|e|f|" cli/build.rs\ncat ').replace('# --- End', (
+        'replace "s|a|b|" cli/build.rs && rm -rf x\n'
+        'cp -f a b; echo\n'
+        'replace "s|a|$(id)|" src/x.ts\n'
+        'cat a > b | tee c\n'
+        '# --- End'))
+    mentions = '# build/lib/electron.ts\necho build/lib/electron.ts\nexpect\n'  # no checks
     code, out = self.run_check(
-      {'prepare_vscode.sh': script + broken, 'dev/check_build_edits.sh': named},
+      {'prepare_vscode.sh': script + broken, 'dev/check_build_edits.sh': named + mentions},
       upstream={'prepare_vscode.sh': script})
     self.assertEqual(code, 1, out)
     self.assert_lines(
       out, '- prepare_vscode.sh:11: replace, cp or cat that this check cannot read',
       '- prepare_vscode.sh:12: a line this check cannot list',
-      '- prepare_vscode.sh:10: dev/check_build_edits.sh names build/lib/electron.ts fewer times than',
-      'Errors: 3\n')
+      *(f'- prepare_vscode.sh:{n}: replace, cp or cat that runs another command too' for n in (14, 15, 16, 17)),
+      '- prepare_vscode.sh:10: dev/check_build_edits.sh checks build/lib/electron.ts fewer times than',
+      'Errors: 7\n')
 
   def test_untrusted_names_start_no_workflow_command(self):
     name = '::error file=x::boom\n##[warning]a.sh'

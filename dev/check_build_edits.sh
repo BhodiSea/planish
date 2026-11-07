@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Checks, after build.sh, that the Planish block at the end of prepare_vscode.sh changed the
 # prepared vscode/ tree, since replace does nothing, and says nothing, when upstream's text
-# stops matching. The fence check makes this name each file the block edits, once per edit.
+# stops matching. The fence check counts the expect and copied lines below, which name their
+# file first: each file needs one for each edit the block makes to it.
 
 cd "$( dirname "$0" )/.." || exit 1
 
@@ -11,6 +12,15 @@ status=0
 # FILE ERE WHAT: reports WHAT unless vscode/FILE holds a line matching ERE.
 expect() {
   if ! grep -qsE -- "$2" "vscode/$1"; then
+    echo "::error::vscode/$1: $3"
+    status=1
+  fi
+}
+
+# FILE SOURCE WHAT: reports WHAT unless vscode/FILE is the same as vscode/SOURCE and, since cp
+# makes FILE when VS Code no longer has it, VS Code's commit has FILE.
+copied() {
+  if ! git -C vscode cat-file -e "HEAD:$1" 2> /dev/null || ! cmp -s "vscode/$2" "vscode/$1"; then
     echo "::error::vscode/$1: $3"
     status=1
   fi
@@ -25,11 +35,6 @@ expect build/lib/policies/render.ts 'namespace="CogveraLabs\.Policies\.' "the po
 expect resources/win32/VisualElementsManifest.xml 'ShortDisplayName="Planish"' "ShortDisplayName is not Planish"
 expect src/vs/workbench/contrib/welcomeGettingStarted/browser/gettingStarted.ts "'insider' : 'main'" "the announcements fetch does not use main"
 
-# cp makes the file when VS Code no longer has it, so check that VS Code's commit does.
-if ! git -C vscode cat-file -e HEAD:resources/win32/sessions.ico 2> /dev/null \
-  || ! cmp -s vscode/resources/win32/code.ico vscode/resources/win32/sessions.ico; then
-  echo "::error::vscode/resources/win32/sessions.ico is not VS Code's icon replaced by code.ico"
-  status=1
-fi
+copied resources/win32/sessions.ico resources/win32/code.ico "not VS Code's icon replaced by code.ico"
 
 exit "${status}"
