@@ -41,11 +41,12 @@ NTFS and ext4 have no clone (`cp --reflink=always` fails on ext4). The macOS run
 |---|---|---|---|---|---|---|---|
 | Apple's, macOS 15.8.2, Xcode 16.4 | 2.39.5 (Apple Git-154) | no | no | no | no | own only | no |
 | Apple's, macOS 26.6.2, Xcode 26.6 | 2.50.1 (Apple Git-155) | no | no | no | no | own only | no |
+| Apple's command line tools, macOS 15.8.2 and 26.6.2 | 2.39.5 and 2.50.1, as Xcode's | no | no | no | no | own only | no |
 | Homebrew, macOS | 2.56.0 | yes | no | yes | no | both | yes |
 | Linux | 2.56.0 | yes | no | yes | no | both | yes |
 | Git for Windows | 2.56.0.windows.4 | yes | no | yes | no | both | yes |
 
-- Apple's git is too old for hooks set in configuration, which git 2.54 added ([githooks](https://git-scm.com/docs/githooks)). The runners' `/usr/bin/git` runs Xcode's git, since `xcode-select` points at Xcode there. A clean Mac gets git from the command line tools instead, so their version is for a test on one; the workflow also prints the runner's command line tools' git, where they are installed.
+- Apple's git is too old for hooks set in configuration, which git 2.54 added ([githooks](https://git-scm.com/docs/githooks)). The runners' `/usr/bin/git` runs Xcode's git, since `xcode-select` points at Xcode there. A clean Mac gets git from the command line tools instead. On both runners, the tools' own git, `/Library/Developer/CommandLineTools/usr/bin/git`, is the same version as Xcode's, so a clean Mac with the tools for Xcode 26.6 most likely has 2.50.1 too; a test on one would confirm it.
 - `--no-verify` skips hooks set in configuration on commit and on push, as it skips the repository's own, so Planish's secret check cannot rest on git's hooks alone.
 - Where they run, configured hooks run beside the repository's own and beside a `core.hooksPath` set by tools such as husky.
 
