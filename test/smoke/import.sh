@@ -20,8 +20,9 @@ SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 # shellcheck source=test/smoke/app.sh
 . "$( dirname "${BASH_SOURCE[0]}" )/app.sh"
 
-# id:cask:app name
-EDITORS=(vscode:visual-studio-code:"Visual Studio Code" cursor:cursor:Cursor antigravity:antigravity:Antigravity)
+# id:cask. Antigravity's editor is the cask antigravity-ide: since 2.0 the cask antigravity is
+# Google's agent app, which is not a VS Code fork and keeps no VS Code setup.
+EDITORS=(vscode:visual-studio-code cursor:cursor antigravity:antigravity-ide)
 TRUSTED='{"editorconfig": {"publisher": "EditorConfig", "publisherDisplayName": "EditorConfig"},
   "redhat": {"publisher": "redhat", "publisherDisplayName": "Red Hat"},
   "ms-python": {"publisher": "ms-python", "publisherDisplayName": "Microsoft"}}'
@@ -129,15 +130,17 @@ sample() {
 }
 
 # --force: a runner image may hold one of them already.
-HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask --force visual-studio-code cursor antigravity
+HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask --force visual-studio-code cursor antigravity-ide
 
 echo "## Importing from other editors" >> "${SUMMARY}"
 status=0
 made=()
 for editor in "${EDITORS[@]}"; do
-  IFS=: read -r id _ name <<< "${editor}"
+  IFS=: read -r id cask <<< "${editor}"
+  # The app's name, as the cask installs it in /Applications.
+  name="$( brew info --cask --json=v2 "${cask}" | jq -r '[.casks[0].artifacts[] | .app? // empty | .[] | strings] | first | rtrimstr(".app")' )"
   if sample "${id}" "${name}"; then
-    made+=("${editor}")
+    made+=("${id}:${name}")
   else
     echo "### ${name}: no sample setup, see the log" >> "${SUMMARY}"
     status=1
@@ -145,7 +148,7 @@ for editor in "${EDITORS[@]}"; do
 done
 
 for editor in ${made[@]+"${made[@]}"}; do
-  IFS=: read -r id _ name <<< "${editor}"
+  IFS=: read -r id name <<< "${editor}"
   rm -rf "${TMP}/user-data" "${TMP}/extensions"
   mkdir -p "${TMP}/user-data/User/globalStorage"
   python3 -I "${STATE}" set "${TMP}/user-data/User/globalStorage/state.vscdb" extensions.trustedPublishers "${TRUSTED}"
