@@ -3,3 +3,4 @@
 // one more import here and no edit to VS Code's files.
 
 import './agentLinks.js';
+import './profileImport.js';

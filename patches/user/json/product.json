@@ -40,5 +40,11 @@
   "downloadUrl": "https://github.com/BhodiSea/planish/releases",
   "releaseNotesUrl": null,
   "updateUrl": "https://raw.githubusercontent.com/BhodiSea/planish/versions",
-  "voiceWsUrl": null
+  "voiceWsUrl": null,
+  "extensionRecommendations": {
+    "detachhead.basedpyright": { "onFileOpen": [{ "languages": ["python"], "important": true }] },
+    "llvm-vs-code-extensions.vscode-clangd": { "onFileOpen": [{ "languages": ["c", "cpp"], "important": true }] },
+    "vadimcn.vscode-lldb": { "onFileOpen": [{ "languages": ["c", "cpp"], "important": true }] },
+    "muhammad-sammy.csharp": { "onFileOpen": [{ "languages": ["csharp"], "important": true }] }
+  }
 }

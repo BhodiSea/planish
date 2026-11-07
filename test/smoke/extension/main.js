@@ -3,7 +3,13 @@
 // extension, so calls that depend on which extension makes them are made from here.
 const vscode = require('vscode');
 
-exports.activate = context => ({
-  logUri: context.logUri,
-  openAgentLink: uri => vscode.env.openAgentLink(uri),
-});
+exports.activate = context => {
+  // layout.sh drives the app without the test runner, which keeps the app's state in memory.
+  if (process.env.SMOKE_DRIVE) {
+    require('./run.js').drive(process.env.SMOKE_DRIVE);
+  }
+  return {
+    logUri: context.logUri,
+    openAgentLink: uri => vscode.env.openAgentLink(uri),
+  };
+};

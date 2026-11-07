@@ -5,6 +5,9 @@
   "private": true,
   "license": "Apache-2.0",
   "main": "./main.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "engines": {
     "vscode": "^1.100.0"
   },

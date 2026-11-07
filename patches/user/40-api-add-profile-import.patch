@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: Apache-2.0
+diff --git a/src/vs/workbench/api/common/extHost.api.impl.ts b/src/vs/workbench/api/common/extHost.api.impl.ts
+index cd021a4..c255668 100644
+--- a/src/vs/workbench/api/common/extHost.api.impl.ts
++++ b/src/vs/workbench/api/common/extHost.api.impl.ts
+@@ -494,6 +494,16 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
+ 					throw err;
+ 				}
+ 			},
++			// --- Start Planish ---
++			importIntoProfile(data: vscode.PlanishProfileData) {
++				checkProposedApiEnabled(extension, 'planishProfileImport');
++				return rpcProtocol.getProxy(MainContext.MainThreadPlanishProfileImport).$importIntoProfile(data);
++			},
++			createProfile(name: string, data: vscode.PlanishProfileData) {
++				checkProposedApiEnabled(extension, 'planishProfileImport');
++				return rpcProtocol.getProxy(MainContext.MainThreadPlanishProfileImport).$createProfile(name, data);
++			},
++			// --- End Planish ---
+ 			get remoteName() {
+ 				return getRemoteName(initData.remote.authority);
+ 			},
+diff --git a/src/vs/workbench/api/common/extHost.protocol.ts b/src/vs/workbench/api/common/extHost.protocol.ts
+index e9c1242..c88866b 100644
+--- a/src/vs/workbench/api/common/extHost.protocol.ts
++++ b/src/vs/workbench/api/common/extHost.protocol.ts
+@@ -1452,6 +1452,21 @@ export interface BrowserTabDto {
+ 	favicon: string | undefined;
+ }
+ 
++// --- Start Planish ---
++export interface PlanishProfileDataDto {
++	readonly settings?: string;
++	readonly keybindings?: string;
++	readonly tasks?: string;
++	readonly snippets?: { readonly [name: string]: string };
++	readonly extensions?: readonly string[];
++}
++
++export interface MainThreadPlanishProfileImportShape extends IDisposable {
++	$importIntoProfile(data: PlanishProfileDataDto): Promise<string[]>;
++	$createProfile(name: string, data: PlanishProfileDataDto): Promise<boolean>;
++}
++
++// --- End Planish ---
+ export interface MainThreadBrowsersShape extends IDisposable {
+ 	$openBrowserTab(url: string, viewColumn?: EditorGroupColumn, options?: IEditorOptions): Promise<BrowserTabDto>;
+ 	$closeBrowserTab(browserId: string): Promise<void>;
+@@ -4171,6 +4186,9 @@ export const MainContext = {
+ 	MainThreadDataChannels: createProxyIdentifier<MainThreadDataChannelsShape>('MainThreadDataChannels'),
+ 	MainThreadChatSessions: createProxyIdentifier<MainThreadChatSessionsShape>('MainThreadChatSessions'),
+ 	MainThreadChatOutputRenderer: createProxyIdentifier<MainThreadChatOutputRendererShape>('MainThreadChatOutputRenderer'),
++	// --- Start Planish ---
++	MainThreadPlanishProfileImport: createProxyIdentifier<MainThreadPlanishProfileImportShape>('MainThreadPlanishProfileImport'),
++	// --- End Planish ---
+ 	MainThreadChatContext: createProxyIdentifier<MainThreadChatContextShape>('MainThreadChatContext'),
+ 	MainThreadChatDebug: createProxyIdentifier<MainThreadChatDebugShape>('MainThreadChatDebug'),
+ 	MainThreadBrowsers: createProxyIdentifier<MainThreadBrowsersShape>('MainThreadBrowsers'),
+diff --git a/src/vscode-dts/vscode.proposed.planishProfileImport.d.ts b/src/vscode-dts/vscode.proposed.planishProfileImport.d.ts
+new file mode 100644
+index 0000000..4ceae0d
+--- /dev/null
++++ b/src/vscode-dts/vscode.proposed.planishProfileImport.d.ts
+@@ -0,0 +1,41 @@
++// --- Start Planish ---
++// SPDX-License-Identifier: Apache-2.0
++
++declare module 'vscode' {
++
++	/**
++	 * What a profile holds, as the text of the files VS Code keeps for it.
++	 */
++	export interface PlanishProfileData {
++		/** The text of settings.json. */
++		readonly settings?: string;
++		/** The text of keybindings.json. */
++		readonly keybindings?: string;
++		/** The text of tasks.json. */
++		readonly tasks?: string;
++		/** The text of each snippets file, by file name. */
++		readonly snippets?: { readonly [name: string]: string };
++		/** The extensions to install from the gallery, by ID. */
++		readonly extensions?: readonly string[];
++	}
++
++	export namespace env {
++		/**
++		 * Replaces the current profile's settings, keyboard shortcuts, tasks and snippets with
++		 * those given, keeping its machine-specific settings, as VS Code's profile import does,
++		 * and installs the extensions beside those it has, once the user trusts their publishers.
++		 *
++		 * @returns The IDs of the extensions that were not installed.
++		 */
++		export function importIntoProfile(data: PlanishProfileData): Thenable<string[]>;
++
++		/**
++		 * Creates a profile from the data and installs its extensions from the gallery. The user
++		 * is asked to trust their publishers, and before a profile of that name is replaced.
++		 *
++		 * @returns Whether the profile was created.
++		 */
++		export function createProfile(name: string, data: PlanishProfileData): Thenable<boolean>;
++	}
++}
++// --- End Planish ---

@@ -234,6 +234,66 @@ jobs:
           archive: false
           retention-days: 90
 
+  # The checks that Planish is familiar to VS Code's users (#59): its default keyboard shortcuts
+  # against the VSCodium baseline's, the update test, the stand-ins it recommends for file types,
+  # and the scripted import from VS Code, Cursor and Antigravity, which installs them, so it runs last.
+  familiar:
+    name: macOS arm64 (import, shortcuts and layout)
+    needs:
+      - macos
+      - baseline
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      RELEASE_VERSION: ${{ needs.macos.outputs.RELEASE_VERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.APP_NAME }}-darwin-arm64-${{ env.RELEASE_VERSION }}.zip
+          skip-decompress: true
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: baseline.zip
+          key: ${{ needs.baseline.outputs.key }}
+          fail-on-cache-miss: true
+
+      - name: Unpack
+        run: |
+          ditto -x -k baseline.zip baseline
+          ditto -x -k "${APP_NAME}-darwin-arm64-${RELEASE_VERSION}.zip" candidate
+
+      - name: Default keyboard shortcuts against upstream's
+        timeout-minutes: 10
+        run: |
+          bash test/smoke/keybindings.sh baseline/*.app upstream.json
+          bash test/smoke/keybindings.sh candidate/*.app planish.json
+          node test/smoke/keybindings.mjs upstream.json planish.json
+
+      - name: Update test on a customised layout
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: bash test/smoke/layout.sh candidate/*.app
+
+      - name: Stand-ins recommended for file types
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: bash test/smoke/recommendations.sh candidate/*.app
+
+      - name: Import from VS Code, Cursor and Antigravity
+        if: ${{ !cancelled() }}
+        timeout-minutes: 30
+        run: bash test/smoke/import.sh candidate/*.app
+
   windows-compile:
     name: Windows x64 (compile)
     runs-on: windows-2022

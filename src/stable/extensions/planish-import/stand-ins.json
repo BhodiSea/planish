@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Pylance",
+    "ids": ["ms-python.vscode-pylance"],
+    "standIns": ["detachhead.basedpyright"],
+    "languages": ["python"]
+  },
+  {
+    "name": "C/C++",
+    "ids": ["ms-vscode.cpptools", "ms-vscode.cpptools-extension-pack"],
+    "standIns": ["llvm-vs-code-extensions.vscode-clangd", "vadimcn.vscode-lldb"],
+    "languages": ["c", "cpp"]
+  },
+  {
+    "name": "Remote - SSH",
+    "ids": ["ms-vscode-remote.remote-ssh", "ms-vscode-remote.remote-ssh-edit"],
+    "standIns": ["jeanp413.open-remote-ssh"]
+  },
+  {
+    "name": "WSL",
+    "ids": ["ms-vscode-remote.remote-wsl"],
+    "standIns": ["jeanp413.open-remote-wsl"]
+  },
+  {
+    "name": "C# and C# Dev Kit",
+    "partial": true,
+    "ids": ["ms-dotnettools.csharp", "ms-dotnettools.csdevkit"],
+    "standIns": ["muhammad-sammy.csharp"],
+    "languages": ["csharp"]
+  },
+  {
+    "name": "Live Share",
+    "partial": true,
+    "ids": ["ms-vsliveshare.vsliveshare"],
+    "standIns": ["typefox.open-collaboration-tools"]
+  },
+  {
+    "name": "Dev Containers",
+    "partial": true,
+    "ids": ["ms-vscode-remote.remote-containers"],
+    "standIns": []
+  },
+  {
+    "name": "Copilot",
+    "ids": ["github.copilot", "github.copilot-chat"],
+    "standIns": ["anthropic.claude-code", "openai.chatgpt"]
+  },
+  {
+    "name": "IntelliCode",
+    "ids": ["visualstudioexptteam.vscodeintellicode"],
+    "standIns": []
+  },
+  {
+    "name": "VS Code Speech",
+    "ids": ["ms-vscode.vscode-speech"],
+    "standIns": []
+  }
+]
