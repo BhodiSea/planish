@@ -562,8 +562,8 @@ def main():
   report += ['', f'Upstream files Planish edits: {count + len(vs_code.keys() | build)}']
   report += [f'  VSCodium files in this repository: {count}']
   for kind, paths in edited.items():
-    report += [f'    - {kind}: {q(p)}' + (f', from {q(moved[p])}' if p in moved else '')
-               for p in paths]
+    report += [
+      f'    - {kind}: {q(p)}' + (f', from {q(moved[p])}' if p in moved else '') for p in paths]
   report += [f'  VS Code files: {len(vs_code)}']
   for target, (source, n) in sorted(vs_code.items()):
     unfenced = f': {n} lines unfenced (Electron update)' if n else ''
