@@ -59,10 +59,14 @@ function userFolder(parent) {
   }
   const folder = path.join(parent, sid);
   fs.mkdirSync(folder, { recursive: true });
-  run('icacls', [folder, '/inheritance:r', '/grant:r', `*${sid}:(OI)(CI)F`, '/q']);
-  const entries = run('icacls', [folder]).split(/\r?\n/).filter(line => /:\(/.test(line));
-  if (entries.length !== 1) {
-    throw new Error(`${folder} is open to others: ${entries.join('; ')}`);
+  // A protected list, so nothing is inherited, with one entry: full control for the user.
+  const dacl = `D:P(A;OICI;FA;;;${sid})`;
+  const script = '$acl = Get-Acl -LiteralPath $env:PLANISH_FOLDER; $acl.SetSecurityDescriptorSddlForm($env:PLANISH_DACL, "Access"); '
+    + 'Set-Acl -LiteralPath $env:PLANISH_FOLDER -AclObject $acl; (Get-Acl -LiteralPath $env:PLANISH_FOLDER).Sddl';
+  const sddl = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
+    { encoding: 'utf8', windowsHide: true, env: { ...process.env, PLANISH_FOLDER: folder, PLANISH_DACL: dacl } }).trim();
+  if (!sddl.endsWith(dacl)) {
+    throw new Error(`${folder} is open to others: ${sddl}`);
   }
   return folder;
 }

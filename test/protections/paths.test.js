@@ -70,5 +70,6 @@ test('with no ASCII form, the root is the user\'s own folder in PlanishTemp', { 
   assert.equal(path.dirname(path.dirname(root)), drive);
   const entries = execFileSync('icacls', [root], { encoding: 'utf8' }).split(/\r?\n/).filter(line => /:\(/.test(line));
   assert.equal(entries.length, 1, entries.join('; '));
+  assert.match(entries[0], /:\(OI\)\(CI\)\(F\)$/);
   assert.equal(tempRoot(folder, drive).root, root);
 });
