@@ -27,7 +27,7 @@ The build copies `src/stable/` over VS Code's source, so these folders are new t
 
 ## Keep upstream edits few
 
-An edit to a file that comes from VS Code or VSCodium is fenced with marker comments, so updates from upstream stay easy to merge; the [fork spec](docs/spec/fork.md#the-repository) has the rules. Before you push, run the fence check and its tests:
+An edit to a file that comes from VS Code or VSCodium is fenced with marker comments, so updates from upstream stay easy to merge; the [fork spec](docs/spec/fork.md#the-repository) has the rules, and the [sync guide](docs/sync.md) the steps for taking a newer VS Code release. Before you push, run the fence check and its tests:
 
 ```sh
 git fetch --no-tags https://github.com/VSCodium/vscodium.git master:refs/vscodium/master
