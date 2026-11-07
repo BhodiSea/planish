@@ -7,18 +7,22 @@ Upstream files are those in the merge-base of HEAD and VSCODIUM_REF. Each line P
 adds to one, and each line a patch of Planish's adds to VS Code's tree, must sit between
 "--- Start Planish ---" and "--- End Planish ---" comments in that file's comment syntax,
 except in new files in Planish's own folders and the few files listed below. Each line
-removed from either must be kept as a comment in a fence at the place it was removed from;
-lines dropped from VSCodium's own patches are not checked. Blank lines are exempt, whole
-files may be deleted but not then created again, and a VSCodium patch may be disabled by
-renaming it, unchanged, to .patch.no. Names that differ only in case are refused, since
+removed from either must be kept as a comment in a fence at the place it was removed from, so
+a line holding its comment closer stays. A line VSCodium's version of one of its patches adds
+and Planish's drops must be kept as a comment in a fence among the lines Planish's adds to that
+file, and a line VSCodium's removes must still be removed. A file git finds moved is checked
+as an edit of the file it was. Blank lines are exempt, VS Code's files may be deleted whole,
+by a patch or a delete list, but not then created again, and a VSCodium patch may be disabled
+by renaming it, unchanged, to .patch.no. Names that differ only in case are refused, since
 macOS and Windows treat them as one. Strict JSON holds no comments: VS Code's is changed
 by JSON Merge Patches in patches/user/json/, which dev/merge_json.sh merges at build time.
 Prints Planish's JSON edits and the upstream files it edits, with the VS Code files that
-the fences in prepare_vscode.sh change with replace, cp or cat, which dev/check_build_edits.sh
-must name once for each edit; exits 1 on errors.
+the fences in prepare_vscode.sh change with replace, cp or cat, one command a line, which
+dev/check_build_edits.sh must check once for each edit; exits 1 on errors.
 """
 import json
 import os
+import posixpath
 import re
 import shlex
 import subprocess
@@ -36,6 +40,8 @@ BUILD_CHECK = 'dev/check_build_edits.sh'  # checks the results of its edits
 # Its fences hold only edits whose last word is the file, comments and the JSON merge.
 BUILD_EDIT = re.compile(r'[ \t]*(replace|cp|cat)[ \t]')
 BUILD_OTHER = re.compile(r'[ \t]*(#.*|\.\./dev/merge_json\.sh)?[ \t\r]*')
+OPERATOR = re.compile(r'[;&|<>()]+')  # as shlex splits them out
+BUILD_CHECK_LINE = re.compile(r'[ \t]*(expect|copied)[ \t]')  # each names its file first
 OWN = r'(extensions/planish-|src/vs/workbench/contrib/planish)'  # Planish's folders in VS Code
 OWN_SRC = re.compile(r'src/(stable|insider)/' + OWN)
 PATCH = re.compile(r'patches/.+\.patch(\.no|\.yet)?')
@@ -58,6 +64,8 @@ COMMENTS = {  # each comment syntax's opener and closer
   'xml': ('<!--', '-->'),
   'semi': (';', ''),
 }
+# Text that ends a comment early, so that no comment can keep a line holding it.
+CLOSERS = {name: closer for name, (_, closer) in COMMENTS.items() if closer} | {'xml': '--'}
 # Each syntax's Start marker; its End marker has "End" for "Start". XML bans "--" in comments.
 FORMS = {
   name: f'{opener} --- Start Planish --- {closer}'.rstrip()
@@ -111,8 +119,11 @@ def syntax(path, first_line=''):
 
 
 def unmarked(path, syn, what, fenced=False):
-  """The error for what ("line added", say) outside a fence, or, if fenced, for a line removed
-  from inside a fence that keeps no comment of it."""
+  """The error for what ("line added", say) outside a fence; if fenced, for a line removed from
+  inside a fence that keeps no comment of it; if fenced is 'closer', for a line removed that no
+  comment can keep."""
+  if fenced == 'closer':
+    return f'{what}, but it holds "{CLOSERS[syn]}", so no comment can keep it: leave it in place'
   if fenced:
     return f'{what} but not kept as a comment in its fence'
   error = f'{what} outside a fence'
@@ -140,7 +151,7 @@ def fence(lines, syn):
   """Walk (number, kind, text) lines in order, kind being '+' for an added line, ' ' for a kept
   one, '-' for a removed one and '@' for a gap between hunks. Return the errors, the added lines
   outside fences, and the removed lines that no fence at the place they were removed from keeps
-  as comments, each with whether a fence was there."""
+  as comments, each with whether a fence was there, or 'closer' if no comment could keep it."""
   errors, loose, fences, start = [], [], [], None
   for i, (n, kind, text) in enumerate(lines):
     if kind not in '+ ':
@@ -178,7 +189,9 @@ def fence(lines, syn):
       for n, k, s in lines[first:i]:
         if k == '-' and s.strip(' \t\r'):
           held = next((notes for notes in near if notes[words(s)]), None)
-          if held is None:
+          if syn in CLOSERS and CLOSERS[syn] in s:
+            gone.append((n, s, 'closer'))
+          elif held is None:
             gone.append((n, s, bool(near)))
           else:
             held[words(s)] -= 1
@@ -255,7 +268,8 @@ def applied(data):
 def check_patch(path, data, base=None):
   """Errors in a patch file, {existing VS Code file it changes: lines left unfenced by the
   Electron exemption}, and the (file, 'A' or 'D') pairs for the files it creates or deletes. In
-  VSCodium's patches, lines VSCodium's version adds or removes may stay unfenced."""
+  VSCodium's patches, lines VSCodium's version adds or removes may stay unfenced, and only the
+  pairs it lacks are given."""
   text = data.decode(errors='replace')
   errors, changed, parsed = [], {}, sections(text)
   if base is None and not text.startswith(SPDX + '\n'):
@@ -291,7 +305,52 @@ def check_patch(path, data, base=None):
         errors.append((n, f'{q(target)}: {unmarked(target, syn, what, fenced)}'))
     if status != 'A':
       changed[target] = changed.get(target, 0) + unfenced
-  return errors, changed, {(t, s) for t, s, _ in parsed if s in 'AD'}
+  errors += dropped(parsed, vscodium)
+  whole = {(t, s) for t, s, _ in parsed if s in 'AD'} - {(t, s) for t, s, _ in vscodium}
+  return errors, changed, whole
+
+
+def dropped(parsed, vscodium):
+  """Errors for the lines VSCodium's version of a patch changes that Planish's no longer does.
+  A line it added must be kept as a comment in a fence among the lines Planish's adds to that
+  file. A line it removed that Planish's keeps must still be removed and added back in a fence;
+  one VS Code has since changed, which Planish's removes in its new form, is kept as a comment
+  in a fence like a dropped addition."""
+  def lines(sections):
+    found = ((t, k, s) for t, _, ls in sections for _, k, s in ls)
+    return Counter(line for line in found if line[1] in '+-' and line[2].strip(' \t\r'))
+  notes, first, context = {}, {}, {(t, s) for t, _, ls in parsed for _, k, s in ls if k == ' '}
+  for target, _, ls in parsed:
+    syn, inside = syntax(target), False
+    first.setdefault(target, ls[0][0] if ls else 1)
+    kept = notes.setdefault(target, Counter())
+    for _, k, s in ls:
+      if k not in '+ ' or not syn:
+        continue
+      if m := MARKERS[syn].fullmatch(s):
+        inside = m[1] == 'Start'
+      elif inside and k == '+' and (note := comment(s, syn)) is not None:
+        kept[note] += 1
+  errors = []
+  for target, kind, s in (lines(vscodium) - lines(parsed)).elements():
+    syn, what = syntax(target), f"{q(target)}: VSCodium's line {q(s.strip())}"
+    if kind == '-' and (target, s) in context:
+      error = f'{what} is no longer removed: remove it, and ' + (
+        f'change the file in {OVERLAYS}' if target.endswith('.json') and not syn
+        else 'add it back in a fence')
+    elif not syn:
+      error = f'{what} dropped: ' + (
+        f"strict JSON holds no comments, so keep it and change the file in {OVERLAYS}"
+        if target.endswith('.json') else 'comment syntax unknown: add the file type to EXTENSIONS')
+    elif syn in CLOSERS and CLOSERS[syn] in s:
+      error = f'{what} dropped, but it holds "{CLOSERS[syn]}", so no comment can keep it: keep it'
+    elif notes.get(target, Counter())[words(s)]:
+      notes[target][words(s)] -= 1
+      continue
+    else:
+      error = f'{what} dropped but not kept as a comment in a fence'
+    errors.append((first.get(target, 1), error))
+  return errors
 
 
 def keys(value, prefix=''):
@@ -320,6 +379,18 @@ def deleted_paths(data):
   return paths if inside and all(isinstance(ps, list) for ps in lists) else None
 
 
+def shell_words(line):
+  """The words of a shell line, with operators as words of their own; None if a word holds "#"
+  or a quote is open."""
+  lexer = shlex.shlex(re.sub(r'[ \t]#.*', '', line, count=1), posix=True, punctuation_chars=True)
+  lexer.whitespace_split, lexer.commenters = True, ''
+  try:
+    found = list(lexer)
+  except ValueError:
+    return None
+  return None if any('#' in word for word in found) else found
+
+
 def build_edits(data):
   """{file: its lines} for the files that the fences in prepare_vscode.sh change with replace, cp
   or cat, each called at the start of a line, and errors for the lines there that this cannot
@@ -329,13 +400,35 @@ def build_edits(data):
     if m := MARKERS['hash'].fullmatch(line):
       inside = m[1] == 'Start'
     elif inside and BUILD_EDIT.match(line):
-      try:
-        files.setdefault(shlex.split(line, comments=True)[-1], []).append(n)
-      except ValueError:
+      found = shell_words(line)
+      if found is None:
         errors.append((n, 'replace, cp or cat that this check cannot read: keep each to one line'))
+        continue
+      ops = [i for i, word in enumerate(found) if OPERATOR.fullmatch(word)]
+      into = found[0] == 'cat' and found[-2:-1] in (['>'], ['>>'])  # cat's output is the file
+      if '$(' in line or '`' in line or ops not in ([], [len(found) - 2] if into else []):
+        errors.append((n, 'replace, cp or cat that runs another command too: keep each line to '
+                          'one command, without $( ) or backquotes'))
+      else:
+        files.setdefault(found[-1], []).append(n)
     elif inside and not BUILD_OTHER.fullmatch(line):
       errors.append((n, 'a line this check cannot list: edit with replace, cp or cat'))
   return files, errors
+
+
+def build_checks(data):
+  """How many of dev/check_build_edits.sh's checks name each file."""
+  named = Counter()
+  for line in data.decode(errors='replace').split('\n'):
+    if BUILD_CHECK_LINE.match(line) and (found := shell_words(line)) and len(found) > 1:
+      named[found[1]] += 1
+  return named
+
+
+def within(path, folders):
+  """The first of folders that is path or holds it, or None."""
+  path = posixpath.normpath(path)
+  return next((f for f in folders if path == f or path.startswith(f + '/')), None)
 
 
 def case_clashes(*trees):
@@ -369,9 +462,18 @@ def main():
   disabled = {path for _, mode, _, new, status, path in changes
               if status == 'A' and mode not in LINKS and path.endswith('.no')
               and PATCH.fullmatch(path) and deleted.get(path[:-3]) == new}
-  errors, json_edits, vs_code, build, made = case_clashes(base, 'HEAD'), [], {}, {}, {}
-  edited = {'changed': [], 'replaced': [], 'binary': [], 'version pin': [], 'disabled': [],
-            'deleted': []}
+  # A file that git finds moved, and perhaps edited, is checked as an edit of the file it was.
+  raw = git('diff-tree', '-r', '-z', '-M', '--diff-filter=R', '--no-abbrev', base, 'HEAD')
+  raw = raw.decode(errors='replace').split('\0')[:-1]
+  moved = {new: old for old, new in zip(raw[1::3], raw[2::3]) if new not in disabled}
+  gone = {c[5]: c for c in changes if c[4] == 'D' and c[5] in moved.values()}
+  changes = [c for c in changes if c[5] not in gone]
+  changes = [(gone[moved[c[5]]][0], c[1], gone[moved[c[5]]][2], c[3], 'M', c[5]) if c[5] in moved
+            else c for c in changes]
+  errors, json_edits, vs_code, build = case_clashes(base, 'HEAD'), [], {}, {}
+  made = {'A': {}, 'D': {}}  # VS Code paths Planish creates or deletes whole: {path: (file, line)}
+  edited = {'changed': [], 'moved': [], 'replaced': [], 'binary': [], 'version pin': [],
+            'disabled': [], 'deleted': []}
   for old_mode, new_mode, old, new, status, path in changes:
     if path in disabled:
       edited['disabled'].append(path[:-3])
@@ -388,7 +490,8 @@ def main():
       if PATCH.fullmatch(path):
         found, changed, whole = check_patch(path, git('cat-file', 'blob', new))
         errors += [(path, n, msg) for n, msg in sorted(found)]
-        made.update(dict.fromkeys(whole, path))
+        for target, status in whole:
+          made[status].setdefault(target, (path, 1))
         for target, unfenced in changed.items():
           vs_code.setdefault(target, (path, unfenced))
           if target.endswith('.json') and not syntax(target):
@@ -411,6 +514,7 @@ def main():
           errors.append((path, 1, 'not a delete list like patches/52-ext-copilot-remove-it.json'))
         for target in removed or []:
           vs_code.setdefault(target, (path, 0))
+          made['D'].setdefault(posixpath.normpath(target), (path, 1))
       elif path.startswith(('src/stable/', 'src/insider/')) and not OWN_SRC.match(path):
         errors.append((path, 1, f'could replace vscode/{q(path.split("/", 2)[2])} whole; Planish '
                                 'code goes in extensions/planish-*/ or contrib/planish*/'))
@@ -434,22 +538,26 @@ def main():
           continue
         json_edits.append(f'{path}, edited in place: ' + (', '.join(pins) or 'no keys'))
     else:
-      edited['changed'].append(path)
+      edited['moved' if path in moved else 'changed'].append(path)
       if PATCH.fullmatch(path):
-        found = check_patch(path, data, old_data)[0]
+        found, _, whole = check_patch(path, data, old_data)
+        for target, status in whole:
+          made[status].setdefault(target, (path, 1))
       else:
         found = check_text(path, old, new, data)
       if path == BUILD_SCRIPT:
         build, unread = build_edits(data)
-        checks = git('cat-file', 'blob', f'HEAD:{BUILD_CHECK}').decode(errors='replace')
+        checks = build_checks(git('cat-file', 'blob', f'HEAD:{BUILD_CHECK}'))
         found += unread + [
-          (ns[-1], f'{BUILD_CHECK} names {q(t)} fewer times than this edits it: check each edit')
-          for t, ns in build.items() if checks.count(t) < len(ns)]
+          (ns[-1], f'{BUILD_CHECK} checks {q(t)} fewer times than this edits it: check each edit')
+          for t, ns in build.items() if checks[t] < len(ns)]
+        for target, ns in build.items():  # cp and cat make a file that is not there
+          made['A'].setdefault(target, (path, ns[0]))
       errors += [(path, n, msg) for n, msg in sorted(found)]
-  errors += [
-    (made[t, 'A'], 1, f'{q(t)}: deleted by {q(made[t, "D"])} and created again, which drops its '
-                      'lines unmarked: change it with hunks')
-    for t, s in made if s == 'D' and (t, 'A') in made]
+  for target, (path, n) in made['A'].items():
+    if gone := within(target, made['D']):
+      errors.append((path, n, f'{q(target)}: deleted by {q(made["D"][gone][0])} and created again, '
+                              'which drops its lines unmarked: change it with hunks'))
 
   # Each line starts with fixed text, so no file name or line from the diff can start one.
   count = sum(map(len, edited.values()))
@@ -457,7 +565,9 @@ def main():
   report += [f'  - {line}' for line in json_edits]
   report += ['', f'Upstream files Planish edits: {count + len(vs_code.keys() | build)}']
   report += [f'  VSCodium files in this repository: {count}']
-  report += [f'    - {kind}: {q(path)}' for kind, paths in edited.items() for path in paths]
+  for kind, paths in edited.items():
+    report += [
+      f'    - {kind}: {q(p)}' + (f', from {q(moved[p])}' if p in moved else '') for p in paths]
   report += [f'  VS Code files: {len(vs_code)}']
   for target, (source, n) in sorted(vs_code.items()):
     unfenced = f': {n} lines unfenced (Electron update)' if n else ''

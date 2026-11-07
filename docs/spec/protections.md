@@ -23,7 +23,7 @@ The promise to a newcomer is that nothing an agent does inside the project is pe
 | OS-level fence | Lets agents write only to the project, the session's temp folder and caches, read credentials and personal folders only once granted, and reach only listed hosts | Reaches agents unevenly ([below](#what-each-agent-adds)) |
 | Snapshot and record | Copies the project before each turn or command Planish sees, otherwise at quiet moments, with Restore; records files, commands, processes and network use beyond agents' reach | Nothing outside the project or on another machine; no copy-on-write on NTFS or ext4 |
 | Supervisor | Ends process trees on Stop and window close, contains runaways, and watches ports, network use, persistence, credential files and disk, listing what agents started in a Running view | Only processes started under Planish; no per-tree memory cap on macOS |
-| Session temp folder and environment | A short ASCII temp folder per session; no pagers or git password prompts; `sudo` asking in a Planish dialog; Python installs kept to virtual environments; a session marker for hooks; git hooks set in git's configuration | Programs that clear their environment or use absolute paths; git run with `-c`, and pushes through a hosting site's API, which skip hooks set in configuration |
+| Session temp folder and environment | A short ASCII temp folder per session; no pagers or git password prompts; `sudo` asking in a Planish dialog; Python installs kept to virtual environments; a session marker for hooks; git hooks set in git's configuration | Programs that clear their environment or use absolute paths; git run with `-c` or `--no-verify`, and pushes through a hosting site's API, which skip hooks set in configuration; Apple's git, which is too old for them ([below](#what-is-not-known-yet)) |
 | Turn review | At most three flags per turn ([below](#reports-in-the-turn-review)) | Turn ends are guessed for agents without hooks |
 
 Agents' own undo misses the worst losses: Claude Code's checkpoints skip changes made by shell commands ([checkpointing][cc-checkpoint]), and terminal deletes skip the Trash ([claude-code#23913][cc23913]). As APFS snapshots need a restricted entitlement, which Apple appears to have granted only to backup apps ([Eclectic Light][eclectic]), the store uses `clonefile` copies and, like Cline's checkpoints, a shadow git repository ([Cline][cline-ckpt]). The record stays on the device, like [agents' session logs](README.md#principles-behind-every-design-choice).
@@ -37,9 +37,11 @@ On macOS, Claude Code and Codex can have no fence but their own, since a process
 | Agent | Fence | Hooks | The kit writes |
 |---|---|---|---|
 | Claude Code | Its own sandbox, off by default; `failIfUnavailable` is added only where Planish has seen the sandbox start, since elsewhere it stops Claude Code from starting ([sandboxing][cc-sandbox]) | Before every tool, MCP tools included, and at turn end ([hooks][cc-hooks]) | Sandbox on, auto-allowing only in Planish sessions *(unknown how)*; `network.allowLocalBinding` on macOS, for dev servers; package registries and the project's git host on its network allowlist, which starts empty; credential and personal-folder reads denied until granted; `disableBypassPermissionsMode`; `blockWritesOutsideWorkingDirectories`; confirmations for `.env*` files and first MCP use; the session environment |
-| Codex | Its own `workspace-write` sandbox, without network, on by default in git folders ([sandboxing][codex-sandbox]) | Before shell commands only, refusing but never asking; at turn end, if that runs in the extension *(unknown)* | The guard hook; a `shell_environment_policy` dropping `*KEY*` and `*TOKEN*` variables and setting the session environment; `exclude_slash_tmp`, if it earns its approvals. Read denials and a locked policy need an administrator's `requirements.toml` ([managed configuration][codex-managed]) |
+| Codex | Its own `workspace-write` sandbox, without network, on by default in git folders ([sandboxing][codex-sandbox]) | Before shell commands, edits through `apply_patch`, MCP tools and its other local tools, but not hosted tools such as web search; refusing or rewriting a call, never asking ([hooks][codex-hooks]); at turn end, if that runs in the extension *(unknown)* | The guard hook; a `shell_environment_policy` dropping `*KEY*` and `*TOKEN*` variables and setting the session environment; `exclude_slash_tmp`, if it earns its approvals. Read denials and a locked policy need an administrator's `requirements.toml` ([managed configuration][codex-managed]) |
 | Cline, Kilo Code | Planish's fence and network filter, on terminals Planish opens for them | Cline's, by default, let a call through when the hook itself fails ([Cline][cline-hooks]); Kilo Code documents none | Nothing; Planish never switches on their auto-approval |
 | In-house sidebar, after the first release | Planish's fence and network filter around the whole agent | Native: Planish answers every permission request | Nothing; whether OpenCode can be confined is *(unknown)* ([fork.md](fork.md#the-agent-that-builds-lessons)) |
+
+Kilo Code 7 no longer runs commands in VS Code's terminals: its bundled command-line tool runs them, as a server the extension starts, with sandbox helpers of its own (*from code*, [#42](https://github.com/BhodiSea/planish/issues/42)). How Planish's fence reaches it is *(unknown)*.
 
 Roo Code and Continue get what Cline and Kilo Code get, without hooks; Roo Code shut down in May 2026 and Continue is no longer maintained ([Roo Code][roo]; [Continue][continue]), and Planish tells their users so.
 
@@ -150,15 +152,21 @@ Every agent gets the same snapshot, clean-ups, record and review; prevention is 
 
 ## What is not known yet
 
-The first three decide how far the defaults reach.
+A prototype settled these on 6 November 2026 ([results](../../prototypes/protection-facts/README.md)):
+
+- **Snapshots per command are affordable** with a shadow git repository that leaves out ignored folders: 0.1–0.2 s after a typical command on a 100,000-file project, on APFS, NTFS and ext4 alike, once the first snapshot (10–33 s) is taken. A full copy takes 3–47 s each time and an APFS clone 9–17 s, so neither suits every command.
+- **Cline runs commands in VS Code's terminals by default**, where Planish's fence can reach them, unless the user switches it to running them in the background as child processes of the extension host. Kilo Code 7 does not ([above](#what-each-agent-adds)).
+- **Codex's hooks reach beyond shell commands**, to edits through `apply_patch`, MCP tools and its other local tools, but not hosted tools such as web search; they refuse or rewrite a call, and `ask` is not supported yet ([hooks][codex-hooks]).
+- **Apple's git is too old for hooks set in configuration**: Xcode 26.6 and its command line tools ship git 2.50.1, and only git 2.54 and later run such hooks. With git 2.56, `--no-verify` skips them on commit and push, so Planish's secret check cannot rest on git's hooks alone.
+
+The first two below decide how far the defaults reach.
 
 | Question | What depends on it | How to settle it |
 |---|---|---|
-| Do the Claude Code and Codex extensions pass Planish's environment (temp folder, git hooks, session marker) to their programs, or must the kit's `claudeCode.environmentVariables` and Codex's `shell_environment_policy` carry it? | At least four defaults | A day of tests in a Planish build, with those in [agent-integration.md](agent-integration.md#unknowns) |
-| Do Cline and Kilo Code run every command in VS Code's terminals? | Whether Planish's fence reaches them | The same tests |
-| What does a snapshot before every command cost on a large project, on APFS, NTFS and ext4? | Snapshots per command or per turn | A measurement with the [performance budgets](fork.md#performance) |
-| Can Claude Code's auto-allow be limited to Planish sessions; do its hooks see the sandbox-escape flag and permission mode, and can its permission-request hook wait for the user? Do Codex's hooks reach beyond shell commands, does its turn-end hook run in the extension, and can a user trust its hooks without the CLI or desktop app ([agent-integration.md](agent-integration.md#unknowns))? | Prompts outside Planish; the evasion and Plan-mode blocks; whether Codex's guard and turn-end hooks run at all | Prototype tests |
-| Is Apple's git new enough (2.54) for hooks set in configuration ([githooks][githooks]); can `--no-verify` skip Planish's secret check; does a sandbox denial suppress macOS's privacy prompt? | The commit and push checks; confirmations for other apps' data | Tests on a clean Mac |
+| Does Planish's environment (temp folder, git hooks, session marker) reach every command the Claude Code and Codex extensions run? Both start their programs with the extension host's environment, Claude Code adding `claudeCode.environmentVariables` and Codex the proxy settings (*from code*), so it reaches the programs if Planish puts it there; whether Claude Code's sandbox and Codex's `shell_environment_policy` pass it on to commands is untested | At least four defaults | A day of tests in a Planish build, with those in [agent-integration.md](agent-integration.md#unknowns) |
+| Can Claude Code's auto-allow be limited to Planish sessions? Its docs give the setting no condition; `--settings` applies per session, but Planish does not start Claude Code ([settings][cc-settings]). Do its hooks see the sandbox-escape flag? `dangerouslyDisableSandbox` is a Bash parameter that permission rules can match, but the hooks docs do not list it in `tool_input` ([sandboxing][cc-sandbox]). Can its permission-request hook wait for the user? It can allow or deny, with the 600-second default of command hooks, and the docs do not say whether the dialog waits ([hooks][cc-hooks]). Hooks do see the permission mode | Prompts outside Planish; the evasion and Plan-mode blocks | Prototype tests with a logged-in Claude Code |
+| Does Codex's turn-end hook run in the extension, and can a user trust its hooks there? The docs show trust only in the CLI's `/hooks` and the desktop app; managed hooks, from `requirements.toml`, need no trust ([hooks][codex-hooks]) | Whether Codex's guard and turn-end hooks run at all | Tests with a logged-in Codex |
+| Does a sandbox denial suppress macOS's privacy prompt? | Confirmations for other apps' data | A test on a clean Mac |
 | How often does each detector flag wrongly, and each confirmation fire? | Which defaults stay | Hand tests and the calibration export |
 
 [cc82165]: https://github.com/anthropics/claude-code/issues/82165 "anthropics/claude-code#82165, 29 Jul 2026"
@@ -173,6 +181,8 @@ The first three decide how far the defaults reach.
 [cx26262]: https://github.com/openai/codex/issues/26262 "openai/codex#26262"
 [cc-sandbox]: https://code.claude.com/docs/en/sandboxing "Claude Code docs: sandboxing"
 [cc-hooks]: https://code.claude.com/docs/en/hooks "Claude Code docs: hooks"
+[cc-settings]: https://code.claude.com/docs/en/settings "Claude Code docs: settings"
+[codex-hooks]: https://learn.chatgpt.com/docs/hooks "Codex docs: hooks"
 [codex-sandbox]: https://learn.chatgpt.com/docs/sandboxing "Codex docs: sandboxing"
 [codex-managed]: https://learn.chatgpt.com/docs/enterprise/managed-configuration "Codex docs: managed configuration"
 [cline-hooks]: https://docs.cline.bot/sdk/plugins "Cline docs: SDK plugins, hook errors"

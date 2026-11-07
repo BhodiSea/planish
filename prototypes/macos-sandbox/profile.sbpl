@@ -1,0 +1,132 @@
+; SPDX-License-Identifier: Apache-2.0
+; Seatbelt profile for running a project's code. sandbox.mjs passes RUN, the
+; run's folder, which holds the clone and the scratch folders.
+;
+; Adapted from the Codex CLI, copyright 2025 OpenAI, under the Apache License
+; 2.0: https://github.com/openai/codex, codex-rs/sandboxing/src at commit
+; ad1dbba32db4b0204d2f769c762f329dc37c8895. The rules come from
+; seatbelt_base_policy.sbpl and seatbelt_preferences_policy.sbpl, and the
+; denials of fcntls and XPC services from seatbelt.rs. Changed: reads, writes,
+; the /dev/stdout, /dev/stderr and /dev/fd writes and the Unix-socket rules are
+; Planish's, and the net.routetable. sysctls are dropped.
+;
+; Codex's credit for its base policy:
+; inspired by Chrome's sandbox policy:
+; https://source.chromium.org/chromium/chromium/src/+/main:sandbox/policy/mac/common.sb;l=273-319;drc=7b3962fe2e5fc9e2ee58000dc8fbf3429d84d3bd
+; https://source.chromium.org/chromium/chromium/src/+/main:sandbox/policy/mac/renderer.sb;l=64;drc=7b3962fe2e5fc9e2ee58000dc8fbf3429d84d3bd
+
+(version 1)
+
+(deny default)
+
+(allow process-exec)
+(allow process-fork)
+(allow signal (target same-sandbox))
+(allow process-info* (target same-sandbox))
+
+; Reads are allowed, as in Codex's default, so that the toolchain, its caches
+; and the user's configuration work where they are. A run's output reaches the
+; learner's agent, so what a test prints can leave the device: sandbox.mjs
+; appends denials for where credentials usually live.
+(allow file-read*)
+
+(allow file-write* (subpath (param "RUN")))
+(allow file-write-data
+  (require-all
+    (path "/dev/null")
+    (vnode-type CHARACTER-DEVICE)))
+(allow file-write-data (literal "/dev/stdout") (literal "/dev/stderr") (regex #"^/dev/fd/[0-9]+$"))
+
+; These fcntls change a file through a read-only descriptor (F_MAKECOMPRESSED
+; and F_TRANSFEREXTENTS); Codex found that file-write* does not cover them.
+(deny system-fcntl (fcntl-command 80 110))
+
+(allow sysctl-read
+  (sysctl-name "hw.activecpu")
+  (sysctl-name "hw.busfrequency_compat")
+  (sysctl-name "hw.byteorder")
+  (sysctl-name "hw.cacheconfig")
+  (sysctl-name "hw.cachelinesize_compat")
+  (sysctl-name "hw.cpufamily")
+  (sysctl-name "hw.cpufrequency_compat")
+  (sysctl-name "hw.cputype")
+  (sysctl-name "hw.l1dcachesize_compat")
+  (sysctl-name "hw.l1icachesize_compat")
+  (sysctl-name "hw.l2cachesize_compat")
+  (sysctl-name "hw.l3cachesize_compat")
+  (sysctl-name "hw.logicalcpu_max")
+  (sysctl-name "hw.machine")
+  (sysctl-name "hw.model")
+  (sysctl-name "hw.memsize")
+  (sysctl-name "hw.ncpu")
+  (sysctl-name "hw.nperflevels")
+  (sysctl-name-prefix "hw.optional.arm.")
+  (sysctl-name-prefix "hw.optional.armv8_")
+  (sysctl-name "hw.packages")
+  (sysctl-name "hw.pagesize_compat")
+  (sysctl-name "hw.pagesize")
+  (sysctl-name "hw.physicalcpu")
+  (sysctl-name "hw.physicalcpu_max")
+  (sysctl-name "hw.logicalcpu")
+  (sysctl-name "hw.cpufrequency")
+  (sysctl-name "hw.tbfrequency_compat")
+  (sysctl-name "hw.vectorunit")
+  (sysctl-name "machdep.cpu.brand_string")
+  (sysctl-name "kern.argmax")
+  (sysctl-name "kern.hostname")
+  (sysctl-name "kern.maxfilesperproc")
+  (sysctl-name "kern.maxproc")
+  (sysctl-name "kern.osproductversion")
+  (sysctl-name "kern.osrelease")
+  (sysctl-name "kern.ostype")
+  (sysctl-name "kern.osvariant_status")
+  (sysctl-name "kern.osversion")
+  (sysctl-name "kern.secure_kernel")
+  (sysctl-name "kern.sysv.semmns")
+  (sysctl-name "kern.usrstack64")
+  (sysctl-name "kern.version")
+  (sysctl-name "sysctl.proc_cputype")
+  (sysctl-name "vm.loadavg")
+  (sysctl-name-prefix "hw.perflevel")
+  (sysctl-name-prefix "kern.proc.pgrp.")
+  (sysctl-name-prefix "kern.proc.pid.")
+)
+; Java's CPU check passes a buffer, so Seatbelt counts it as a write.
+(allow sysctl-write (sysctl-name "kern.grade_cputype"))
+
+(allow iokit-open (iokit-registry-entry-class "RootDomainUserClient"))
+
+; User and group lookups, and power management queries.
+(allow mach-lookup
+  (global-name "com.apple.system.opendirectoryd.libinfo")
+  (global-name "com.apple.PowerManagement.control"))
+
+; Python's multiprocessing and OpenMP runtimes.
+(allow ipc-posix-sem)
+(allow ipc-posix-shm-read-data
+  ipc-posix-shm-write-create
+  ipc-posix-shm-write-unlink
+  (ipc-posix-name-regex #"^/__KMP_REGISTERED_LIB_[0-9]+$"))
+
+; Preferences, readable because file reads are.
+(allow ipc-posix-shm-read* (ipc-posix-name-prefix "apple.cfprefs."))
+(allow mach-lookup
+  (global-name "com.apple.cfprefsd.daemon")
+  (global-name "com.apple.cfprefsd.agent")
+  (local-name "com.apple.cfprefsd.agent"))
+(allow user-preference-read)
+
+; Pseudo-terminals, for tools that start a shell.
+(allow pseudo-tty)
+(allow file-read* file-write* file-ioctl (literal "/dev/ptmx"))
+(allow file-read* file-write*
+  (require-all
+    (regex #"^/dev/ttys[0-9]+")
+    (extension "com.apple.sandbox.pty")))
+(allow file-ioctl (regex #"^/dev/ttys[0-9]+"))
+
+; Unix sockets inside RUN, for test runners' workers.
+(allow network-bind (local unix-socket (subpath (param "RUN"))))
+(allow network-outbound (remote unix-socket (subpath (param "RUN"))))
+
+(deny mach-lookup (xpc-service-name-prefix ""))

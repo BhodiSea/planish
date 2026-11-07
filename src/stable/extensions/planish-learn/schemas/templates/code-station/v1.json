@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:cogveralabs.ai,2026:planish/templates/code-station/v1",
+  "title": "Code station",
+  "description": "The learner predicts an output, finds a line or fixes a bug; Planish takes the answer from running the code or from the language server, never from the lesson.",
+  "type": "object",
+  "properties": {
+    "template": {
+      "const": "tag:cogveralabs.ai,2026:planish/templates/code-station/v1",
+      "description": "This template and major version."
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "type": "string",
+      "description": "A short title the learner sees."
+    },
+    "after": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "description": "Ids of earlier parts the learner should finish first."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "predict-output",
+        "find-line",
+        "fix-bug"
+      ],
+      "description": "What the learner does."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task, as the learner sees it."
+    },
+    "cite": {
+      "$ref": "#/$defs/cite"
+    },
+    "call": {
+      "type": "string",
+      "description": "predict-output only: the call to run, in the code's language."
+    },
+    "symbol": {
+      "type": "string",
+      "description": "find-line only: the symbol whose definition is the line to find."
+    },
+    "bug": {
+      "type": "object",
+      "description": "fix-bug only: where the bug comes from, and the test that catches it.",
+      "properties": {
+        "fixCommit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "A commit that fixed a real bug; Planish undoes its fix in a scratch copy. Give this or plantedChange."
+        },
+        "plantedChange": {
+          "type": "string",
+          "description": "A unified diff that plants a bug. Give this or fixCommit."
+        },
+        "test": {
+          "type": "string",
+          "description": "The existing test that catches the bug."
+        }
+      },
+      "required": [
+        "test"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "template",
+    "id",
+    "title",
+    "kind",
+    "prompt",
+    "cite"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,47}$",
+      "description": "Lowercase letters, digits and hyphens, starting with a letter; unique in the lesson."
+    },
+    "file": {
+      "type": "string",
+      "description": "A path relative to the project's root, with forward slashes."
+    },
+    "cite": {
+      "type": "object",
+      "description": "The lines of code that bear this out.",
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/file"
+        },
+        "line": {
+          "type": "integer",
+          "description": "The first line, counted from 1."
+        },
+        "endLine": {
+          "type": "integer",
+          "description": "The last line, inclusive."
+        }
+      },
+      "required": [
+        "file",
+        "line",
+        "endLine"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

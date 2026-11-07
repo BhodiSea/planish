@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0
+diff --git a/src/vs/workbench/api/common/extHost.api.impl.ts b/src/vs/workbench/api/common/extHost.api.impl.ts
+index bb15b89..42b4546 100644
+--- a/src/vs/workbench/api/common/extHost.api.impl.ts
++++ b/src/vs/workbench/api/common/extHost.api.impl.ts
+@@ -473,6 +473,12 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
+ 					allowContributedOpeners: options?.allowContributedOpeners,
+ 				});
+ 			},
++			// --- Start Planish ---
++			openAgentLink(uri: URI) {
++				checkProposedApiEnabled(extension, 'planishAgentLinks');
++				return rpcProtocol.getProxy(MainContext.MainThreadPlanishAgentLinks).$open(uri);
++			},
++			// --- End Planish ---
+ 			async asExternalUri(uri: URI) {
+ 				if (uri.scheme === initData.environment.appUriScheme) {
+ 					return extHostUrls.createAppUri(uri);
+diff --git a/src/vs/workbench/api/common/extHost.protocol.ts b/src/vs/workbench/api/common/extHost.protocol.ts
+index 722cc97..e9c1242 100644
+--- a/src/vs/workbench/api/common/extHost.protocol.ts
++++ b/src/vs/workbench/api/common/extHost.protocol.ts
+@@ -1460,6 +1460,12 @@ export interface MainThreadBrowsersShape extends IDisposable {
+ 	$sendCDPMessage(sessionId: string, message: CDPRequest): Promise<void>;
+ }
+ 
++// --- Start Planish ---
++export interface MainThreadPlanishAgentLinksShape extends IDisposable {
++	$open(uri: UriComponents): Promise<boolean>;
++}
++
++// --- End Planish ---
+ export interface ExtHostBrowsersShape {
+ 	$onDidOpenBrowserTab(browser: BrowserTabDto): void;
+ 	$onDidCloseBrowserTab(browserId: string): void;
+@@ -4168,6 +4174,9 @@ export const MainContext = {
+ 	MainThreadChatContext: createProxyIdentifier<MainThreadChatContextShape>('MainThreadChatContext'),
+ 	MainThreadChatDebug: createProxyIdentifier<MainThreadChatDebugShape>('MainThreadChatDebug'),
+ 	MainThreadBrowsers: createProxyIdentifier<MainThreadBrowsersShape>('MainThreadBrowsers'),
++	// --- Start Planish ---
++	MainThreadPlanishAgentLinks: createProxyIdentifier<MainThreadPlanishAgentLinksShape>('MainThreadPlanishAgentLinks'),
++	// --- End Planish ---
+ };
+ 
+ export const ExtHostContext = {
+diff --git a/src/vscode-dts/vscode.proposed.planishAgentLinks.d.ts b/src/vscode-dts/vscode.proposed.planishAgentLinks.d.ts
+new file mode 100644
+index 0000000..a86c17e
+--- /dev/null
++++ b/src/vscode-dts/vscode.proposed.planishAgentLinks.d.ts
+@@ -0,0 +1,17 @@
++// --- Start Planish ---
++// SPDX-License-Identifier: Apache-2.0
++
++declare module 'vscode' {
++
++	export namespace env {
++		/**
++		 * Opens a link to Claude Code or Codex in the product's own URL scheme, such as
++		 * `planish://anthropic.claude-code/open?prompt=…`, without asking the user whether that
++		 * extension may open it. Rejects any other link.
++		 *
++		 * @returns Whether the link was handled.
++		 */
++		export function openAgentLink(uri: Uri): Thenable<boolean>;
++	}
++}
++// --- End Planish ---

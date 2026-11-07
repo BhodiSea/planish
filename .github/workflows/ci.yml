@@ -34,6 +34,8 @@ jobs:
       OS_NAME: osx
       VSCODE_ARCH: arm64
       MAX_OLD_SPACE_SIZE: 12288
+    outputs:
+      RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -103,6 +105,134 @@ jobs:
       - name: Smoke test
         timeout-minutes: 10
         run: bash test/smoke/smoke.sh VSCode-darwin-arm64/*.app
+
+      - name: Agent extensions
+        timeout-minutes: 20
+        run: bash test/smoke/agents.sh VSCode-darwin-arm64/*.app
+
+  # VSCodium at the commit Planish last synced, which builds the same VS Code tag without Planish's
+  # changes: built once and cached for that commit, as the baseline for perf.
+  baseline:
+    name: macOS arm64 (VSCodium baseline)
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      APP_NAME: VSCodium
+      # Raised when the way the baseline is built changes, so that the cached build is replaced.
+      BASELINE_RECIPE: "2"
+      OS_NAME: osx
+      VSCODE_ARCH: arm64
+      MAX_OLD_SPACE_SIZE: 12288
+    outputs:
+      key: ${{ steps.commit.outputs.key }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find VSCodium's commit
+        id: commit
+        run: |
+          git fetch --no-tags https://github.com/VSCodium/vscodium.git master:refs/vscodium/master
+          commit="$( git merge-base HEAD refs/vscodium/master )"
+          tag="$( jq -r .tag upstream/stable.json )"
+          if [[ "$( git show "${commit}:upstream/stable.json" | jq -r .tag )" != "${tag}" ]]; then
+            echo "::error::VSCodium's ${commit} builds another VS Code tag than ${tag}"
+            exit 1
+          fi
+          echo "commit=${commit}" >> "${GITHUB_OUTPUT}"
+          echo "key=perf-baseline-${BASELINE_RECIPE}-${tag}-${commit}-darwin-arm64" >> "${GITHUB_OUTPUT}"
+
+      - id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: baseline.zip
+          key: ${{ steps.commit.outputs.key }}
+          lookup-only: true
+
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Check out VSCodium
+        env:
+          COMMIT: ${{ steps.commit.outputs.commit }}
+        run: git worktree add vscodium "${COMMIT}"
+
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: vscodium/.nvmrc
+          package-manager-cache: false
+
+      # get_repo.sh passes RELEASE_VERSION on to later steps only.
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Clone VS Code
+        working-directory: vscodium
+        run: ./get_repo.sh
+
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Build
+        working-directory: vscodium
+        env:
+          SHOULD_BUILD: "yes"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./build.sh
+
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Archive
+        run: cd vscodium/VSCode-darwin-arm64 && zip -q -r -X -y ../../baseline.zip ./*.app
+
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: baseline.zip
+          key: ${{ steps.commit.outputs.key }}
+
+  perf:
+    name: macOS arm64 (startup and typing)
+    needs:
+      - macos
+      - baseline
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      RELEASE_VERSION: ${{ needs.macos.outputs.RELEASE_VERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.APP_NAME }}-darwin-arm64-${{ env.RELEASE_VERSION }}.zip
+          # Unpacked by ditto, which keeps the app's modes and links.
+          skip-decompress: true
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: baseline.zip
+          key: ${{ needs.baseline.outputs.key }}
+          fail-on-cache-miss: true
+
+      - name: Unpack
+        run: |
+          ditto -x -k baseline.zip baseline
+          ditto -x -k "${APP_NAME}-darwin-arm64-${RELEASE_VERSION}.zip" candidate
+
+      - name: Measure
+        timeout-minutes: 45
+        run: node test/perf/perf.mjs baseline candidate --out perf.json
+
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: perf.json
+          archive: false
+          retention-days: 90
 
   windows-compile:
     name: Windows x64 (compile)
@@ -204,6 +334,10 @@ jobs:
       - name: Smoke test
         timeout-minutes: 10
         run: bash test/smoke/smoke.sh VSCode-win32-x64
+
+      - name: Agent extensions
+        timeout-minutes: 20
+        run: bash test/smoke/agents.sh VSCode-win32-x64
 
   linux-compile:
     name: Linux x64 (compile)
@@ -335,3 +469,7 @@ jobs:
       - name: Smoke test
         timeout-minutes: 10
         run: xvfb-run -a bash test/smoke/smoke.sh VSCode-linux-x64
+
+      - name: Agent extensions
+        timeout-minutes: 20
+        run: xvfb-run -a bash test/smoke/agents.sh VSCode-linux-x64

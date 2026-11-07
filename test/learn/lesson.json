@@ -1,0 +1,84 @@
+{
+  "$schema": "tag:cogveralabs.ai,2026:planish/lesson/v1",
+  "id": "softmax",
+  "concept": "How the model turns scores into probabilities",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "parts": [
+    {
+      "template": "tag:cogveralabs.ai,2026:planish/templates/code-tour/v1",
+      "id": "tour",
+      "title": "From logits to probabilities",
+      "steps": [
+        { "file": "model/heads.py", "line": 12, "title": "The scores", "description": "The head returns one score per class." },
+        { "file": "model/softmax.py", "line": 3, "description": "softmax turns the scores into probabilities." }
+      ]
+    },
+    {
+      "template": "tag:cogveralabs.ai,2026:planish/templates/diagram/v1",
+      "id": "flow",
+      "title": "Where softmax sits",
+      "mermaid": "flowchart LR\n  heads[heads.py] --> softmax[softmax.py]\n  softmax --> loss[loss.py]",
+      "claims": [
+        { "text": "The loss reads softmax's output.", "cite": { "file": "model/loss.py", "line": 8, "endLine": 9 } }
+      ]
+    },
+    {
+      "template": "tag:cogveralabs.ai,2026:planish/templates/explanation/v1",
+      "id": "why-subtract-max",
+      "title": "Why softmax subtracts the largest score",
+      "after": ["tour"],
+      "diagram": "flow",
+      "claims": [
+        { "text": "softmax subtracts the largest score before exponentiating.", "cite": { "file": "model/softmax.py", "line": 4, "endLine": 4 } }
+      ],
+      "question": {
+        "prompt": "What would go wrong without the subtraction?",
+        "rubric": ["Large scores overflow exp to infinity.", "The subtraction leaves the result unchanged."]
+      }
+    },
+    {
+      "template": "tag:cogveralabs.ai,2026:planish/templates/symbol-table/v1",
+      "id": "symbols",
+      "title": "The symbols of softmax",
+      "equation": "\\sigma(z)_i = \\frac{e^{z_i}}{\\sum_j e^{z_j}}",
+      "symbols": [
+        { "symbol": "z", "meaning": "the scores", "shape": "n", "variable": { "name": "logits", "cite": { "file": "model/softmax.py", "line": 3, "endLine": 3 } } },
+        { "symbol": "\\sigma(z)", "meaning": "the probabilities", "shape": "n", "variable": { "name": "probs", "cite": { "file": "model/softmax.py", "line": 6, "endLine": 6 } } }
+      ]
+    },
+    {
+      "template": "tag:cogveralabs.ai,2026:planish/templates/equation-code/v1",
+      "id": "predict-softmax",
+      "title": "Predict softmax's output",
+      "after": ["symbols"],
+      "equation": "\\sigma(z)_i = \\frac{e^{z_i}}{\\sum_j e^{z_j}}",
+      "function": { "name": "softmax", "cite": { "file": "model/softmax.py", "line": 3, "endLine": 7 } },
+      "symbols": "symbols",
+      "predict": { "call": "softmax([0.0, 0.0])", "prompt": "What does softmax return for two equal scores?" },
+      "change": { "prompt": "Double one score and watch the probabilities move." }
+    },
+    {
+      "template": "tag:cogveralabs.ai,2026:planish/templates/code-station/v1",
+      "id": "fix-overflow",
+      "title": "Fix the overflow",
+      "after": ["why-subtract-max"],
+      "kind": "fix-bug",
+      "prompt": "A test fails with large scores. Find and fix the bug.",
+      "cite": { "file": "model/softmax.py", "line": 3, "endLine": 7 },
+      "bug": { "fixCommit": "89abcdef0123456789abcdef0123456789abcdef", "test": "tests/test_softmax.py::test_large_scores" }
+    },
+    {
+      "template": "tag:cogveralabs.ai,2026:planish/templates/role-play/v1",
+      "id": "review",
+      "title": "Defend the change in review",
+      "after": ["fix-overflow"],
+      "role": "reviewer",
+      "brief": "A reviewer asks about your fix to softmax.",
+      "script": [
+        { "fact": "The overflow was reported with scores above 1000.", "source": "model/softmax.py:3-7" }
+      ],
+      "protectedTerms": ["log-sum-exp"],
+      "rubric": ["Explains why the subtraction prevents overflow."]
+    }
+  ]
+}
