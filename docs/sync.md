@@ -26,7 +26,7 @@ VSCodium's commits need no sign-off; the merge commit does, which `--signoff` gi
 - **Files Planish replaced whole** (`README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `announcements-extra.json`): keep Planish's (`git checkout --ours`).
 - **Version pins** (`upstream/stable.json`, `upstream/insider.json`, `.nvmrc`) and `product.json`: take VSCodium's. Planish's values live in `patches/user/json/`.
 - **Fenced edits**: take VSCodium's lines outside the fences and keep the fences. Where VSCodium changed a line that Planish removed, and keeps in its fence as a comment, make the comment match VSCodium's new line, or drop the removal if it is no longer needed.
-- **VSCodium's patches**: take VSCodium's, then re-apply any change Planish had made to one.
+- **VSCodium's patches**: take VSCodium's, then re-apply any change Planish had made to one, marked as in [Changing one of VSCodium's patches](#changing-one-of-vscodiums-patches).
 
 Then run the fence check against the release, and its tests:
 
@@ -73,11 +73,20 @@ It reads which proposed APIs the Marketplace's 100 most-installed extensions dec
 Without a VSCodium release to merge, Planish repairs VSCodium's patches itself.
 
 1. Pick VS Code's newest release tag (`git ls-remote --tags https://github.com/microsoft/vscode.git`) and set its tag and commit in `upstream/stable.json`. If VS Code's `.nvmrc` at that tag names a newer Node.js, set it in `.nvmrc` too.
-2. Rebase every patch with `dev/update_patches.sh`, as in step 2. Here VSCodium's patches fail too, and each fix is a change to one of VSCodium's patches: a line the repair adds must be fenced, as in any upstream file.
+2. Rebase every patch with `dev/update_patches.sh`, as in step 2. Here VSCodium's patches fail too, and each fix is a change to one of VSCodium's patches, marked as in [Changing one of VSCodium's patches](#changing-one-of-vscodiums-patches).
 3. If one of VSCodium's delete lists (`patches/*.json`) names a path that no longer exists, the build fails with `Not found`. Planish cannot yet change those lists with fences; say so in the pull request.
 4. Build, smoke-test and check the allow-list as in steps 3 and 4.
 
 When VSCodium releases that VS Code version, merge it as in step 1. At each conflict in a patch, take VSCodium's repair and drop Planish's with its fences, unless Planish's is still needed. The fence check's count of upstream files edited should fall back to what it was.
+
+## Changing one of VSCodium's patches
+
+A repair is a change too, and the fence check compares each of VSCodium's patches with VSCodium's version *(decided)*:
+
+- A line the change adds to a VS Code file sits in a fence, as in any upstream file.
+- A line VSCodium's version adds that the change drops stays in the patch as a comment in a fence, among the patch's lines for that file.
+- A VS Code line VSCodium's version removes stays removed. To keep it, add it back in a fence.
+- In strict JSON, which holds no comments, keep VSCodium's line and change it with an overlay in `patches/user/json/`. A line holding its file type's comment closer (`*/`, `-->`, or `--` in XML) cannot be kept as a comment either, so it stays.
 
 ## The pull request
 
