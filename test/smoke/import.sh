@@ -54,10 +54,16 @@ stop() {
 sample() {
   local id="$1" app="/Applications/$2.app"
   local resources cli exe marker="${TMP}/${id}.marker" storage="" user location extensions
-  resources="$( dirname "$( find "${app}/Contents" -maxdepth 5 -path '*/app/product.json' | head -n 1 )" )"
-  if [[ ! -f "${resources}/product.json" ]]; then
-    find "${app}/Contents" -maxdepth 3 | head -n 60
-    echo "::error::$2 holds no app/product.json"
+  # A VS Code fork's product.json names its command line; the editor may sit deeper in the bundle.
+  local product
+  while IFS= read -r product; do
+    echo "${product#"${app}/"}: $( jq -c '{nameShort, applicationName, dataFolderName, version}' "${product}" 2> /dev/null )"
+    if [[ -z "${resources:-}" ]] && jq -e '.applicationName and .dataFolderName' "${product}" > /dev/null 2>&1; then
+      resources="$( dirname "${product}" )"
+    fi
+  done < <( find "${app}/Contents" -maxdepth 7 -name product.json )
+  if [[ -z "${resources:-}" ]]; then
+    echo "::error::$2 holds no VS Code product.json"
     return 1
   fi
   cli="${resources}/bin/$( jq -r .applicationName "${resources}/product.json" )"
@@ -82,7 +88,8 @@ sample() {
   pkill -f "${app}/Contents/" 2> /dev/null || true
   sleep 3
   if [[ -z "${storage}" ]]; then
-    cat "${TMP}/${id}-window.log"
+    tail -n 40 "${TMP}/${id}-window.log"
+    find "${HOME}" -maxdepth 3 -iname "*${id}*" -not -path "${HOME}/Library/Caches/*" 2> /dev/null | head -n 20
     echo "::error::$2 made no profile Sample in a storage.json under ~/Library/Application Support"
     return 1
   fi
@@ -126,12 +133,18 @@ HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask --force visual-studio-code cursor 
 
 echo "## Importing from other editors" >> "${SUMMARY}"
 status=0
+made=()
 for editor in "${EDITORS[@]}"; do
   IFS=: read -r id _ name <<< "${editor}"
-  sample "${id}" "${name}"
+  if sample "${id}" "${name}"; then
+    made+=("${editor}")
+  else
+    echo "### ${name}: no sample setup, see the log" >> "${SUMMARY}"
+    status=1
+  fi
 done
 
-for editor in "${EDITORS[@]}"; do
+for editor in ${made[@]+"${made[@]}"}; do
   IFS=: read -r id _ name <<< "${editor}"
   rm -rf "${TMP}/user-data" "${TMP}/extensions"
   mkdir -p "${TMP}/user-data/User/globalStorage"
