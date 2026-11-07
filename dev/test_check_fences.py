@@ -373,9 +373,32 @@ class CheckFences(unittest.TestCase):
     code, out = self.run_check({patch: other}, upstream={patch: vscodium})
     self.assertEqual(code, 1, out)
     self.assert_lines(
-      out, "src/c.ts: VSCodium's line \"old();\" is no longer removed: remove it, and add it back",
+      out, "src/c.ts: VSCodium's line \"old();\" dropped but not kept as a comment in a fence",
       'package.json: VSCodium\'s line "\\"x\\": 1," dropped: strict JSON holds no comments, so keep it and change the file in patches/user/json/',
       'src/d.css: VSCodium\'s line "a { b: c; } /* note */" dropped, but it holds "*/"')
+    kept = hunk('src/c.ts', removed=('old();',))
+    code, out = self.run_check(
+      {patch: kept.replace('-old();', ' old();') + rest}, upstream={patch: vscodium})
+    self.assertEqual(code, 1, out)
+    self.assertIn('VSCodium\'s line "old();" is no longer removed: remove it, and add it back', out)
+
+  def test_vscodium_patch_repair_keeps_a_removal_vs_code_changed(self):
+    patch = 'patches/01-trim.patch'
+    vscodium = hunk('src/c.ts', removed=('old(a);',))
+    repaired = hunk('src/c.ts', '// --- Start Planish ---', '// old(a);', '// --- End Planish ---',
+                    removed=('old(a, b);',))
+    code, out = self.run_check({patch: repaired}, upstream={patch: vscodium})
+    self.assertEqual(code, 1, out)
+    self.assertIn('src/c.ts: line removed but not kept as a comment in its fence', out)
+    self.assertNotIn('no longer removed', out)
+    repaired = hunk('src/c.ts', '// --- Start Planish ---', '// old(a);', '// old(a, b);',
+                    '// --- End Planish ---', removed=('old(a, b);',))
+    code, out = self.run_check({patch: repaired}, upstream={patch: vscodium})
+    self.assertEqual(code, 0, out)
+    code, out = self.run_check(
+      {patch: hunk('src/c.ts', removed=('old(a, b);',))}, upstream={patch: vscodium})
+    self.assertEqual(code, 1, out)
+    self.assertIn('VSCodium\'s line "old(a);" dropped but not kept as a comment in a fence', out)
 
   def test_checks_patch_yet_and_patch_no_files(self):
     yet = 'patches/00-update-disable.patch.yet'

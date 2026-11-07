@@ -313,11 +313,13 @@ def check_patch(path, data, base=None):
 def dropped(parsed, vscodium):
   """Errors for the lines VSCodium's version of a patch changes that Planish's no longer does.
   A line it added must be kept as a comment in a fence among the lines Planish's adds to that
-  file; a line it removed must still be removed, and may be added back in a fence."""
+  file. A line it removed that Planish's keeps must still be removed and added back in a fence;
+  one VS Code has since changed, which Planish's removes in its new form, is kept as a comment
+  in a fence like a dropped addition."""
   def lines(sections):
     found = ((t, k, s) for t, _, ls in sections for _, k, s in ls)
     return Counter(line for line in found if line[1] in '+-' and line[2].strip(' \t\r'))
-  notes, first = {}, {}
+  notes, first, context = {}, {}, {(t, s) for t, _, ls in parsed for _, k, s in ls if k == ' '}
   for target, _, ls in parsed:
     syn, inside = syntax(target), False
     first.setdefault(target, ls[0][0] if ls else 1)
@@ -332,8 +334,10 @@ def dropped(parsed, vscodium):
   errors = []
   for target, kind, s in (lines(vscodium) - lines(parsed)).elements():
     syn, what = syntax(target), f"{q(target)}: VSCodium's line {q(s.strip())}"
-    if kind == '-':
-      error = f'{what} is no longer removed: remove it, and add it back in a fence'
+    if kind == '-' and (target, s) in context:
+      error = f'{what} is no longer removed: remove it, and ' + (
+        f'change the file in {OVERLAYS}' if target.endswith('.json') and not syn
+        else 'add it back in a fence')
     elif not syn:
       error = f'{what} dropped: ' + (
         f"strict JSON holds no comments, so keep it and change the file in {OVERLAYS}"
