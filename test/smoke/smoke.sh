@@ -4,8 +4,10 @@
 # Smoke test for a build: installs an extension from Open VSX with the build's
 # command line, then starts the app on a folder and checks, from inside the app,
 # that the folder is open, the extension is installed and activates, the test
-# extension cannot open agents' links without the question, and the validator
-# of the built-in extension planish-learn passes test/learn/lesson.json.
+# extension cannot open agents' links without the question, the validator of
+# the built-in extension planish-learn passes test/learn/lesson.json, and the
+# built-in extension planish-protections gave the extension host its session's
+# temp folder and environment.
 #
 # Usage: test/smoke/smoke.sh <VSCode-darwin-arm64/*.app | VSCode-linux-x64 | VSCode-win32-x64>
 # Linux needs a display: xvfb-run -a test/smoke/smoke.sh VSCode-linux-x64

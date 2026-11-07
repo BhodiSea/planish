@@ -1,0 +1,25 @@
+{
+  "name": "planish-protections",
+  "displayName": "Planish Protections",
+  "description": "Planish's protections against agent actions users do not want: so far, each session's temp folder and environment.",
+  "version": "0.1.0",
+  "publisher": "planish",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./src/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  }
+}
