@@ -68,7 +68,8 @@ function userFolder(parent) {
   const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   const sddl = execFileSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', script],
     { encoding: 'utf8', windowsHide: true, env: { ...env, PLANISH_FOLDER: folder, PLANISH_DACL: dacl } }).trim();
-  if (!sddl.endsWith(dacl)) {
+  // Read back, the list may name the user by an alias, such as LA for the built-in administrator.
+  if (!/D:PA?I?\(A;OICI;FA;;;[A-Z0-9-]+\)$/.test(sddl)) {
     throw new Error(`${folder} is open to others: ${sddl}`);
   }
   return folder;
