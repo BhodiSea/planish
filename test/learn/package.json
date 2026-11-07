@@ -1,0 +1,11 @@
+{
+  "name": "planish-learn-tests",
+  "private": true,
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
+  }
+}
