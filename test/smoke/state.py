@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Reads and writes the app's stored state, a SQLite file (state.vscdb), for the tests here.
 
-Usage: python3 -I test/smoke/state.py get DB KEY...   prints {key: value or null} as JSON
-       python3 -I test/smoke/state.py set DB KEY VALUE creates DB as the app does if missing
+Usage:
+  python3 -I test/smoke/state.py get DB KEY...     prints {key: value or null} as JSON
+  python3 -I test/smoke/state.py set DB KEY VALUE  creates DB as the app does if missing
 """
 import json
 import sqlite3

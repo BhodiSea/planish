@@ -104,7 +104,7 @@ sample() {
   jq -n --arg settings "${SETTINGS}" --arg keybindings "${KEYBINDINGS}" --arg snippets "${SNIPPETS}" \
     --arg profileSettings "${PROFILE_SETTINGS}" --argjson reported "${reported}" \
     '{ $settings, $keybindings, $snippets, extension: "EditorConfig.EditorConfig",
-       profile: "Sample", $profileSettings, profileExtension: "redhat.vscode-yaml", $reported }' > "${TMP}/${id}.json"
+      profile: "Sample", $profileSettings, profileExtension: "redhat.vscode-yaml", $reported }' > "${TMP}/${id}.json"
 
   {
     echo "### $2 $( jq -r .version "${resources}/product.json" )"
