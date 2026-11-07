@@ -22,7 +22,8 @@ concurrency:
 
 env:
   APP_NAME: Planish
-  DISABLE_UPDATE: "yes"
+  # Releases update themselves from the versions file that versions.yml writes on publishing.
+  DISABLE_UPDATE: "no"
   SHOULD_BUILD_REH_WEB: "no"
   VSCODE_QUALITY: stable
 
