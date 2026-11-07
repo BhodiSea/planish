@@ -40,6 +40,7 @@ Decided on 7 November 2026.
 - **TypeScript 7 is bundled and on by default**, and projects that rely on tsserver plugins keep the JavaScript-based server. ([Large repositories](spec/fork.md#large-repositories))
 - **The editor's own git status calls use git's file-system monitor in large repositories**, and Planish offers, with the user's consent, to optimise the repository's own configuration. ([Large repositories](spec/fork.md#large-repositories))
 - **A local n-gram code index is planned now**, not only if the code-search budget fails. ([Indexing](spec/fork.md#indexing))
+- **Planish keeps the startup work in upstream's build**: its build passes `--mangle-privates`, which VSCodium's drops, and CI checks that each build has the Node compile cache VS Code packages for its platform. ([Large repositories](spec/fork.md#large-repositories))
 
 ## Agents
 

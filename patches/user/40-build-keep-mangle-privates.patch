@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+diff --git a/build/lib/esbuild.ts b/build/lib/esbuild.ts
+index 27ae2de..b80ca4f 100644
+--- a/build/lib/esbuild.ts
++++ b/build/lib/esbuild.ts
+@@ -54,6 +54,9 @@ export function runEsbuildBundle(outDir: string, minify: boolean, nls: boolean,
+ 		const args = [scriptPath, 'bundle', '--out', outDir, '--target', target];
+ 		if (minify) {
+ 			args.push('--minify');
++			// --- Start Planish ---
++			args.push('--mangle-privates');
++			// --- End Planish ---
+ 		}
+ 		if (nls) {
+ 			args.push('--nls');
