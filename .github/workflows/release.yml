@@ -5,16 +5,14 @@ on:
   push:
     tags:
       - "[0-9]*.[0-9]*.[0-9]*"
-  workflow_dispatch:
-    inputs:
-      release_version:
-        description: Release version, such as 1.143.12345; empty for the pinned VS Code tag and the hour of the year
-        required: false
-        type: string
+  # Run on a tag, it releases that tag; run on a branch, it is a dry run, as on a pull request.
+  workflow_dispatch: {}
   # A dry run: builds and assembles the release, and publishes nothing.
   pull_request:
     paths:
       - .github/workflows/release.yml
+      - build/osx/prepare_assets.sh
+      - build/linux/package_reh.sh
 
 permissions: {}
 
@@ -24,7 +22,8 @@ concurrency:
 
 env:
   APP_NAME: Planish
-  DISABLE_UPDATE: "yes"
+  # Releases update themselves from the versions file that versions.yml writes on publishing.
+  DISABLE_UPDATE: "no"
   SHOULD_BUILD_REH_WEB: "no"
   VSCODE_QUALITY: stable
 
@@ -45,7 +44,7 @@ jobs:
       - name: Set the version
         id: version
         env:
-          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_version }}
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
           if [[ -z "${RELEASE_VERSION}" ]]; then
             RELEASE_VERSION="$( jq -r .tag upstream/stable.json )$( printf "%04d" $(( $( date +%-j ) * 24 + $( date +%-H ) )) )"
@@ -58,6 +57,8 @@ jobs:
     name: macOS arm64
     needs: version
     runs-on: macos-15
+    # Releases wait here for the maintainer's approval; every later job needs this one.
+    environment: ${{ github.ref_type == 'tag' && 'release' || '' }}
     timeout-minutes: 150
     env:
       OS_NAME: osx
@@ -94,7 +95,7 @@ jobs:
       - name: Check the build-time edits
         run: ./dev/check_build_edits.sh
 
-      # Signs and notarises only when given a certificate, which this workflow does not yet pass.
+      # Signs and notarises only when given a certificate, which the release environment does not yet hold.
       - name: Package
         run: |
           mkdir assets
@@ -319,10 +320,10 @@ jobs:
           path: release/
           retention-days: 7
 
-  # A draft, which the maintainer reviews and publishes; publishing a draft started by hand creates its tag.
+  # A draft, which the maintainer reviews and publishes.
   publish:
     name: Publish a draft release
-    if: github.event_name != 'pull_request'
+    if: github.ref_type == 'tag'
     needs:
       - version
       - assemble
@@ -340,4 +341,4 @@ jobs:
       - name: Create the draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${RELEASE_VERSION}" --repo "${GITHUB_REPOSITORY}" --draft --target "${GITHUB_SHA}" --title "Planish ${RELEASE_VERSION}" --notes-file notes.md assets/*
+        run: gh release create "${RELEASE_VERSION}" --repo "${GITHUB_REPOSITORY}" --draft --verify-tag --title "Planish ${RELEASE_VERSION}" --notes-file notes.md assets/*

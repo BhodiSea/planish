@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+diff --git a/src/vs/platform/update/electron-main/abstractUpdateService.ts b/src/vs/platform/update/electron-main/abstractUpdateService.ts
+index 13e9736..6de115f 100644
+--- a/src/vs/platform/update/electron-main/abstractUpdateService.ts
++++ b/src/vs/platform/update/electron-main/abstractUpdateService.ts
+@@ -705,6 +705,13 @@ export abstract class AbstractUpdateService extends Disposable implements IUpdat
+ 
+ 				const minReleaseAge = this.configurationService.getValue<number>('update.minReleaseAge');
+ 
++				// --- Start Planish ---
++				if ((update as IUpdate & { securityFix?: boolean }).securityFix === true) {
++					this.logService.info('update#isLatestVersion() - a security fix, offered without the wait');
++					return Promise.resolve({ lastest, update });
++				}
++				// --- End Planish ---
++
+ 				if(minReleaseAge === 0) {
+ 					return Promise.resolve({ lastest, update });
+ 				}

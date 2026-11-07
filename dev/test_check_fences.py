@@ -318,13 +318,87 @@ class CheckFences(unittest.TestCase):
     self.assert_lines(
       out, '- disabled: patches/00-brand.patch\n', f'- deleted: {other}\n', 'Upstream files Planish edits: 2')
     self.assertNotIn('deleted: patches/00-brand.patch', out)
-    for renamed, text in (('patches/00-brand.patch.no', brand.replace('const brand', 'let brand')),
-                          ('patches/02-brand.patch', brand)):
-      code, out = self.run_check({'patches/00-brand.patch': None, renamed: text})
+    renamed = 'patches/00-brand.patch.no'
+    code, out = self.run_check(
+      {'patches/00-brand.patch': None, renamed: brand.replace('const brand', 'let brand')})
+    self.assertEqual(code, 1, out)
+    self.assert_lines(
+      out, f'- moved: {renamed}, from patches/00-brand.patch\n',
+      f"- {renamed}:4: src/a.ts: VSCodium's line \"const brand",
+      f'- {renamed}:6: src/a.ts: line added outside a fence')
+    self.assertNotIn('must start with', out)
+
+  def test_checks_a_moved_file_as_an_edit(self):
+    moved, lines = 'build/utils.sh', ''.join(f'X{i}=1\n' for i in range(9))
+    upstream = {'utils.sh': VSCODIUM['utils.sh'] + lines}
+    code, out = self.run_check({'utils.sh': None, moved: FENCED_SH + lines}, upstream=upstream)
+    self.assertEqual(code, 0, out)
+    self.assert_lines(out, f'- moved: {moved}, from utils.sh\n', 'Upstream files Planish edits: 1')
+    self.assertNotIn('deleted: utils.sh', out)
+    code, out = self.run_check(
+      {'utils.sh': None, moved: upstream['utils.sh'] + 'Y=1\n'}, upstream=upstream)
+    self.assertEqual(code, 1, out)
+    self.assertIn(f'- {moved}:13: line added outside a fence', out)
+    brand, renamed = VSCODIUM['patches/00-brand.patch'], 'patches/user/00-brand.patch'
+    code, out = self.run_check({'patches/00-brand.patch': None, renamed: brand})
+    self.assertEqual(code, 0, out)
+    self.assertIn(f'- moved: {renamed}, from patches/00-brand.patch\n', out)
+
+  def test_vscodium_patch_keeps_the_lines_it_drops(self):
+    brand = VSCODIUM['patches/00-brand.patch']
+    kept = brand.replace('@@ -1,2 +1,3 @@', '@@ -1,2 +1,5 @@').replace(
+      '+const brand = "!!APP_NAME!!";\n',
+      '+// --- Start Planish ---\n+// const brand = "!!APP_NAME!!";\n+// --- End Planish ---\n')
+    code, out = self.run_check({'patches/00-brand.patch': kept})
+    self.assertEqual(code, 0, out)
+    gone = brand.replace('@@ -1,2 +1,3 @@', '@@ -1,2 +1,2 @@').replace(
+      '+const brand = "!!APP_NAME!!";\n', '')
+    for text, error in (
+        (gone, "src/a.ts: VSCodium's line \"const brand = \\\"!!APP_NAME!!\\\";\" dropped but not kept"),
+        (brand.replace('+const', '+// const'), 'dropped but not kept as a comment in a fence')):
+      code, out = self.run_check({'patches/00-brand.patch': text})
       self.assertEqual(code, 1, out)
-      self.assert_lines(
-        out, f"- {renamed}:1: a patch of Planish's must start with",
-        f'- {renamed}:6: src/a.ts: line added outside a fence')
+      self.assertIn(error, out)
+
+  def test_vscodium_patch_keeps_its_removals_and_refuses_drops_it_cannot_keep(self):
+    patch = 'patches/01-trim.patch'
+    rest = hunk('package.json', '  "x": 1,') + hunk('src/d.css', 'a { b: c; } /* note */')
+    vscodium = hunk('src/c.ts', removed=('old();',)) + rest
+    readded = hunk(
+      'src/c.ts', '// --- Start Planish ---', 'old();', '// --- End Planish ---',
+      removed=('old();',)) + rest
+    code, out = self.run_check({patch: readded}, upstream={patch: vscodium})
+    self.assertEqual(code, 0, out)
+    other = hunk('src/e.ts', '// --- Start Planish ---', 'e();', '// --- End Planish ---')
+    code, out = self.run_check({patch: other}, upstream={patch: vscodium})
+    self.assertEqual(code, 1, out)
+    self.assert_lines(
+      out, "src/c.ts: VSCodium's line \"old();\" dropped but not kept as a comment in a fence",
+      'package.json: VSCodium\'s line "\\"x\\": 1," dropped: strict JSON holds no comments, so keep it and change the file in patches/user/json/',
+      'src/d.css: VSCodium\'s line "a { b: c; } /* note */" dropped, but it holds "*/"')
+    kept = hunk('src/c.ts', removed=('old();',))
+    code, out = self.run_check(
+      {patch: kept.replace('-old();', ' old();') + rest}, upstream={patch: vscodium})
+    self.assertEqual(code, 1, out)
+    self.assertIn('VSCodium\'s line "old();" is no longer removed: remove it, and add it back', out)
+
+  def test_vscodium_patch_repair_keeps_a_removal_vs_code_changed(self):
+    patch = 'patches/01-trim.patch'
+    vscodium = hunk('src/c.ts', removed=('old(a);',))
+    repaired = hunk('src/c.ts', '// --- Start Planish ---', '// old(a);', '// --- End Planish ---',
+                    removed=('old(a, b);',))
+    code, out = self.run_check({patch: repaired}, upstream={patch: vscodium})
+    self.assertEqual(code, 1, out)
+    self.assertIn('src/c.ts: line removed but not kept as a comment in its fence', out)
+    self.assertNotIn('no longer removed', out)
+    repaired = hunk('src/c.ts', '// --- Start Planish ---', '// old(a);', '// old(a, b);',
+                    '// --- End Planish ---', removed=('old(a, b);',))
+    code, out = self.run_check({patch: repaired}, upstream={patch: vscodium})
+    self.assertEqual(code, 0, out)
+    code, out = self.run_check(
+      {patch: hunk('src/c.ts', removed=('old(a, b);',))}, upstream={patch: vscodium})
+    self.assertEqual(code, 1, out)
+    self.assertIn('VSCodium\'s line "old(a);" dropped but not kept as a comment in a fence', out)
 
   def test_checks_patch_yet_and_patch_no_files(self):
     yet = 'patches/00-update-disable.patch.yet'
