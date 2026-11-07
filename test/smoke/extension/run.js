@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Runs in the app's extension host (--extensionTestsPath); the app exits with 0 when run() resolves, 1 when it throws.
-// SMOKE_MODE picks the checks: smoke (smoke.sh) or agents (agents.sh).
+// SMOKE_MODE picks the checks: smoke (smoke.sh), agents (agents.sh), keybindings (keybindings.sh),
+// layout and update (layout.sh), or import (import.sh).
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
@@ -67,6 +68,9 @@ async function smoke() {
   if (!learn) {
     throw new Error('the built-in extension planish.planish-learn is missing');
   }
+  if (!vscode.extensions.getExtension('planish.planish-import')) {
+    throw new Error('the built-in extension planish.planish-import is missing');
+  }
   const { validateLesson } = require(path.join(learn.extensionPath, 'src', 'lessons', 'validate.js'));
   const errors = validateLesson(require('../../learn/lesson.json'));
   if (errors.length) {
@@ -111,10 +115,116 @@ async function agents() {
   }
 }
 
+// Writes out the default keyboard shortcuts, as the app shows them, for keybindings.sh to compare.
+async function keybindings() {
+  const uri = 'vscode://defaultsettings/keybindings.json';
+  await vscode.commands.executeCommand('workbench.action.openDefaultKeybindingsFile');
+  let document;
+  for (let tries = 0; !document && tries < 30; tries++) {
+    document = vscode.workspace.textDocuments.find(each => each.uri.toString() === uri);
+    if (!document) {
+      await sleep(1000);
+    }
+  }
+  if (!document) {
+    throw new Error(`${uri} did not open`);
+  }
+  fs.writeFileSync(process.env.SMOKE_OUT, document.getText());
+}
+
+const editors = () => vscode.window.tabGroups.all.map(group =>
+  group.tabs.map(tab => `${group.viewColumn}:${tab.input && tab.input.uri ? path.basename(tab.input.uri.fsPath) : tab.label}`));
+
+// Quits the app as a user would, so that it saves its state, once the test has passed.
+async function quit() {
+  fs.writeFileSync(process.env.SMOKE_PASSED, '');
+  vscode.commands.executeCommand('workbench.action.quit');
+  await new Promise(() => { });
+}
+
+// Lays the window out unlike the default, and records its editors.
+async function layout() {
+  for (const [file, viewColumn] of [['a.txt', vscode.ViewColumn.One], ['b.txt', vscode.ViewColumn.Two]]) {
+    await vscode.window.showTextDocument(vscode.Uri.file(path.join(process.env.SMOKE_WORKSPACE, file)), { viewColumn, preview: false });
+  }
+  for (const command of ['workbench.view.search', 'workbench.action.positionPanelRight', 'workbench.action.focusPanel',
+    'workbench.action.closeAuxiliaryBar', 'workbench.action.toggleSidebarPosition']) {
+    await vscode.commands.executeCommand(command);
+  }
+  await sleep(2000);
+  fs.writeFileSync(process.env.SMOKE_OUT, JSON.stringify(editors()));
+  await quit();
+}
+
+// After the update: the same editors, in the same groups.
+async function update() {
+  const expected = fs.readFileSync(process.env.SMOKE_OUT, 'utf8');
+  let found;
+  for (let tries = 0; found !== expected && tries < 20; tries++) {
+    await sleep(1000);
+    found = JSON.stringify(editors());
+  }
+  if (found !== expected) {
+    throw new Error(`after the update the editors are ${found}, not ${expected}`);
+  }
+  console.log(`after the update the editors are still ${found}`);
+  await quit();
+}
+
+const parse = text => JSON.parse(text);
+const read = file => fs.readFileSync(file, 'utf8');
+
+// Imports SMOKE_IMPORT's setup as a user would, accepting the list as offered, and checks that
+// what import.sh gave that editor came over.
+async function importSetup() {
+  const editor = process.env.SMOKE_IMPORT;
+  const sample = parse(read(process.env.SMOKE_SAMPLE));
+  let settled = false;
+  const importing = Promise.resolve(vscode.commands.executeCommand('planish.importSetup', editor)).finally(() => { settled = true; });
+  for (let seconds = 0; !settled && seconds < 600; seconds++) {
+    await sleep(1000);
+    await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+  }
+  const report = await within(1, importing, 'The import');
+  console.log(report);
+  fs.writeFileSync(process.env.SMOKE_OUT, report);
+
+  const user = path.join(process.env.SMOKE_USER_DATA, 'User');
+  const check = (what, found, expected) => {
+    if (JSON.stringify(found) !== JSON.stringify(expected)) {
+      throw new Error(`${what} is ${JSON.stringify(found)}, not ${JSON.stringify(expected)}`);
+    }
+  };
+  check('settings.json', parse(read(path.join(user, 'settings.json'))), parse(sample.settings));
+  check('keybindings.json', read(path.join(user, 'keybindings.json')), sample.keybindings);
+  check('the snippets', read(path.join(user, 'snippets', 'sample.code-snippets')), sample.snippets);
+  for (let tries = 0; !vscode.extensions.getExtension(sample.extension) && tries < 30; tries++) {
+    await sleep(1000);
+  }
+  if (!vscode.extensions.getExtension(sample.extension)) {
+    throw new Error(`${sample.extension} was not installed`);
+  }
+
+  const profiles = parse(read(path.join(user, 'globalStorage', 'storage.json'))).userDataProfiles || [];
+  const profile = profiles.find(each => each.name === sample.profile);
+  if (!profile) {
+    throw new Error(`no profile ${sample.profile}, only ${JSON.stringify(profiles)}`);
+  }
+  const folder = path.join(user, 'profiles', profile.location);
+  check(`${sample.profile}'s settings.json`, parse(read(path.join(folder, 'settings.json'))), parse(sample.profileSettings));
+  check(`${sample.profile}'s extensions`, parse(read(path.join(folder, 'extensions.json'))).map(e => e.identifier.id.toLowerCase()), [sample.profileExtension.toLowerCase()]);
+  for (const start of sample.reported) {
+    if (!report.split('\n').some(line => line.startsWith(start))) {
+      throw new Error(`the report has no line starting "${start}"`);
+    }
+  }
+  console.log(`imported ${editor}'s setup`);
+}
+
 let own;
 
 exports.run = async () => {
   own = await vscode.extensions.getExtension('planish.planish-smoke').activate();
-  await { smoke, agents }[process.env.SMOKE_MODE]();
+  await { smoke, agents, keybindings, layout, update, import: importSetup }[process.env.SMOKE_MODE]();
   fs.writeFileSync(process.env.SMOKE_PASSED, '');
 };

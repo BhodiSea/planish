@@ -9,6 +9,8 @@ path = [
   "prototypes/paper-grammars/package-lock.json",
   "prototypes/paper-grammars/package.json",
   "prototypes/protection-facts/extensions.json",
+  "src/stable/extensions/planish-import/package.json",
+  "src/stable/extensions/planish-import/stand-ins.json",
   "src/stable/extensions/planish-learn/package.json",
   "src/stable/extensions/planish-learn/schemas/**",
   "test/dev/extension/package.json",

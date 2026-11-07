@@ -1,0 +1,31 @@
+{
+  "name": "planish-import",
+  "displayName": "Planish Import",
+  "description": "Imports settings, keyboard shortcuts, snippets, tasks, extensions and profiles from VS Code, Cursor and Antigravity.",
+  "version": "0.1.0",
+  "publisher": "planish",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "enabledApiProposals": [
+    "planishProfileImport"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "planish.importSetup",
+        "title": "Import Settings and Extensions from Another Editor...",
+        "category": "Planish"
+      }
+    ]
+  }
+}

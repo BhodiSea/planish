@@ -65,7 +65,7 @@ With learning features off, Planish matches the startup, typing and memory of th
 - **No core key rebound:** Planish's commands take only keys VS Code leaves free, as VS Code's guidelines say not to overwrite existing shortcuts ([command palette guidelines](https://code.visualstudio.com/api/ux-guidelines/command-palette)).
 - **Layouts never change on update:** an update never moves, opens or closes a view, and learn mode is opt-in *(decided)*. Cursor 2.0 and Antigravity 2.0 each pushed the editor aside in an update and backed off after users objected ([Cursor forum](https://forum.cursor.com/t/megathread-cursor-layout-and-ui-feedback/146790); [Google AI forum](https://discuss.ai.google.dev/t/antigravity-2-0-breaks-core-developer-tools/146988)).
 
-**Checks:** a scripted import from each editor, default keybindings compared with upstream's, and an update test on a customised layout.
+**Checks:** a scripted import from each editor, default keybindings compared with upstream's, and an update test on a customised layout, run by CI on macOS (`test/smoke/import.sh`, `keybindings.sh` and `layout.sh`).
 
 ### 4. World-class UI and UX
 

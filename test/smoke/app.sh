@@ -26,16 +26,18 @@ TMP="$( native "$( mktemp -d )" )"
 mkdir -p "${TMP}/workspace"
 
 # run_tests MODE EXTENSIONS_DIR [ARGUMENT...]: starts the app on the workspace with
-# extension/run.js in MODE, and fails unless run.js passed.
+# extension/run.js in MODE, and fails unless run.js passed. With FIRST_SCREENS set, the app may
+# show its welcome page and release notes, as after an update.
 run_tests() {
-  local mode="$1" extensions="$2"
+  local mode="$1" extensions="$2" skips=(--skip-welcome --skip-release-notes)
   shift 2
+  [[ -z "${FIRST_SCREENS:-}" ]] || skips=()
   rm -f "${TMP}/passed"
-  SMOKE_MODE="${mode}" SMOKE_WORKSPACE="${TMP}/workspace" SMOKE_PASSED="${TMP}/passed" VSCODE_CLI=1 ELECTRON_ENABLE_LOGGING=1 \
+  SMOKE_MODE="${mode}" SMOKE_WORKSPACE="${TMP}/workspace" SMOKE_USER_DATA="${TMP}/user-data" SMOKE_PASSED="${TMP}/passed" VSCODE_CLI=1 ELECTRON_ENABLE_LOGGING=1 \
     "${EXE}" "${TMP}/workspace" "--user-data-dir=${TMP}/user-data" "--extensions-dir=${extensions}" \
     "--extensionDevelopmentPath=${HERE}/extension" \
     "--extensionTestsPath=${HERE}/extension/run.js" \
-    --disable-telemetry --disable-updates --skip-welcome --skip-release-notes --no-cached-data \
+    --disable-telemetry --disable-updates ${skips[@]+"${skips[@]}"} --no-cached-data \
     --disable-workspace-trust --use-inmemory-secretstorage "$@"
   [[ -f "${TMP}/passed" ]] || { echo "The app exited without running test/smoke/extension/run.js" >&2; return 1; }
 }
