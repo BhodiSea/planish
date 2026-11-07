@@ -34,6 +34,7 @@ function Report($dir) {
 }
 $parent = New-Object IO.DirectoryInfo $env:PLANISH_PARENT
 if (-not $parent.Exists) { $parent.Create() }
+$parent.Refresh()
 $acl = $parent.GetAccessControl($sections)
 $owner = $acl.GetOwner($T).Value
 if (@($env:PLANISH_SID, 'S-1-5-18', 'S-1-5-32-544') -contains $owner -and -not ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
@@ -44,6 +45,7 @@ if (@($env:PLANISH_SID, 'S-1-5-18', 'S-1-5-32-544') -contains $owner -and -not (
 }
 $folder = New-Object IO.DirectoryInfo $env:PLANISH_FOLDER
 if (-not $folder.Exists) { $folder.Create() }
+$folder.Refresh()
 if (-not ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
   $acl = $folder.GetAccessControl($sections)
   $acl.SetOwner($user)
