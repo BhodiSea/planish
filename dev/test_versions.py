@@ -25,8 +25,8 @@ class Versions(unittest.TestCase):
   def test_fields_match_vscodiums(self):
     data = versions.versions(release(), SHA, REPO)
     self.assertEqual(data, {
-      'url': 'https://github.com/BhodiSea/planish/releases/download/1.143.10123/'
-             'Planish-darwin-arm64-1.143.10123.zip',
+      'url': ('https://github.com/BhodiSea/planish/releases/download/1.143.10123/'
+              'Planish-darwin-arm64-1.143.10123.zip'),
       'name': '1.143.10123',
       'version': '7129d48f20816438cbd7ecea1426f4098a2962ba',  # echo 1.143.10123 | sha1sum
       'productVersion': '1.143.10123.0',
@@ -69,8 +69,9 @@ class Versions(unittest.TestCase):
         with open(paths[1], 'w') as f:
           f.write(f'{SHA}  Planish-darwin-arm64-{rel["tagName"]}.zip\n')
         env = {'PATH': os.environ['PATH'], 'GITHUB_REPOSITORY': REPO}
-        return subprocess.run([sys.executable, '-I', '-B', os.path.join(DEV, 'versions.py'),
-                               *paths, *extra], env=env, capture_output=True, text=True)
+        script = os.path.join(DEV, 'versions.py')
+        return subprocess.run([sys.executable, '-I', '-B', script, *paths, *extra], env=env,
+                              capture_output=True, text=True)
 
       out = os.path.join(tmp, 'latest.json')
       self.assertEqual(run(release(pre=True)).returncode, 0)

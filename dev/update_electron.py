@@ -55,16 +55,16 @@ def raise_manifest(manifest, old, new, commit):
   start = manifest.index(f'"repositoryUrl": "{ELECTRON}"')
   end = manifest.index('"version": ', start)
   end = manifest.index('\n', end)
-  entry = re.sub(r'"commitHash": "[0-9a-f]{40}"', f'"commitHash": "{commit}"',
-                 manifest[start:end], count=1)
+  entry = manifest[start:end]
+  entry = re.sub(r'"commitHash": "[0-9a-f]{40}"', f'"commitHash": "{commit}"', entry, count=1)
   entry = entry.replace(f'"tag": "{old}"', f'"tag": "{new}"', 1)
   entry = entry.replace(f'"version": "{old}"', f'"version": "{new}"', 1)
   return manifest[:start] + entry + manifest[end:]
 
 
 def diff(path, old, new):
-  lines = difflib.unified_diff(old.splitlines(True), new.splitlines(True),
-                               f'a/{path}', f'b/{path}', n=1)
+  lines = difflib.unified_diff(
+    old.splitlines(True), new.splitlines(True), f'a/{path}', f'b/{path}', n=1)
   return f'diff --git a/{path} b/{path}\n' + ''.join(lines)
 
 
@@ -91,8 +91,9 @@ def main():
                         capture_output=True, text=True).stdout.strip()
   with open(os.path.join(root, 'upstream/stable.json')) as f:
     tag = json.load(f)['tag']
-  files = {path: fetch(f'https://raw.githubusercontent.com/microsoft/vscode/{tag}/{path}')
-           for path in ('.npmrc', 'build/checksums/electron.txt', 'cgmanifest.json')}
+  files = {
+    path: fetch(f'https://raw.githubusercontent.com/microsoft/vscode/{tag}/{path}')
+    for path in ('.npmrc', 'build/checksums/electron.txt', 'cgmanifest.json')}
   shasums = fetch(f'{ELECTRON}/releases/download/v{new}/SHASUMS256.txt')
   refs = dict(reversed(line.split('\t')) for line in subprocess.run(
     ['git', 'ls-remote', ELECTRON, f'refs/tags/v{new}', f'refs/tags/v{new}^{{}}'],

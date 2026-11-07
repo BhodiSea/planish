@@ -60,8 +60,8 @@ class UpdateElectron(unittest.TestCase):
       self.assertIn(f'"commitHash": "{COMMIT}"', manifest)
     errors, changed, whole = check_fences.check_patch(update_electron.PATCH, patch.encode())
     self.assertEqual(errors, [])
-    self.assertEqual(changed, {'.npmrc': 0, 'build/checksums/electron.txt': 4,
-                               'cgmanifest.json': 6})
+    self.assertEqual(changed, {
+      '.npmrc': 0, 'build/checksums/electron.txt': 4, 'cgmanifest.json': 6})
     self.assertEqual(whole, set())
 
   def test_refuses_other_versions_and_missing_files(self):
