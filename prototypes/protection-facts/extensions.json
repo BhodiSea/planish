@@ -1,0 +1,44 @@
+[
+  {
+    "id": "anthropic.claude-code",
+    "version": "2.1.318",
+    "platform": "linux-x64",
+    "file": "extension/extension.js",
+    "evidence": {
+      "The CLI's environment starts from the extension host's, with claudeCode.environmentVariables on top": "function zo\\(e\\)\\{let t=kk\\(Bt\\(\"environmentVariables\"\\)\\),n=\\{\\.\\.\\.process\\.env\\}",
+      "Each session's CLI is started with that environment": "executableArgs:R,env:T\\}=this\\.getClaudeBinary\\(\\)"
+    }
+  },
+  {
+    "id": "openai.chatgpt",
+    "version": "26.51021.22027",
+    "platform": "linux-x64",
+    "file": "extension/out/extension.js",
+    "evidence": {
+      "codex app-server gets the extension host's environment, with proxy settings and PATH": "u=\\{\\.\\.\\.process\\.env,\\.\\.\\.n,PATH:a,",
+      "The extension starts one app-server": "\"app-server\",\"--analytics-default-enabled\""
+    }
+  },
+  {
+    "id": "saoudrizwan.claude-dev",
+    "version": "4.1.26",
+    "platform": "universal",
+    "file": "extension/dist/extension.js",
+    "evidence": {
+      "Commands run in VS Code's terminals by default": "vscodeTerminalExecutionMode:\\{default:\"vscodeTerminal\"\\}",
+      "A setting moves them to child processes of the extension host": "if\\(a===\"backgroundExec\"\\)"
+    }
+  },
+  {
+    "id": "kilocode.kilo-code",
+    "version": "7.8.27",
+    "platform": "linux-x64",
+    "file": "extension/dist/extension.js",
+    "evidence": {
+      "The agent runs in its bundled CLI, started as a server": "serverProcess=spawn\\(cliPath,\\[\"serve\",\"--port\",\"0\"\\]",
+      "The server gets the extension host's environment": "function resolveManagedServerEnv\\(env26\\)\\{return\\{\\.\\.\\.env26,",
+      "It ships its own sandbox helpers": "resolveLocalBwrapEnv",
+      "Its only terminals are ones the user opens": "entry=\\{terminal:this\\.host\\.createTerminal\\(\\{cwd,name:name3\\}\\)"
+    }
+  }
+]

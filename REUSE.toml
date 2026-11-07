@@ -4,6 +4,7 @@ version = 1
 [[annotations]]
 path = [
   "patches/user/json/**",
+  "prototypes/protection-facts/extensions.json",
   "src/stable/extensions/planish-learn/package.json",
   "src/stable/extensions/planish-learn/schemas/**",
   "test/learn/*.json",
