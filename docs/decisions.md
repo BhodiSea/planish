@@ -20,6 +20,7 @@ These are Planish's decisions, made by the maintainer: the ones that set what Pl
 
 - **A fork of VSCodium's MIT build repository.** It holds no VS Code source: the build fetches VS Code at a pinned release tag and applies VSCodium's patches, which strip Microsoft's branding, telemetry, Marketplace and closed Copilot parts; Planish's own patches and folders sit on top. Planish's edits to upstream files are fenced and kept few. ([The repository](spec/fork.md#the-repository))
 - **Removals are fenced too.** A line Planish removes from a VSCodium or VS Code file is kept in a fence as a comment, as Positron does, so that no change to an upstream file goes unmarked. ([The repository](spec/fork.md#the-repository))
+- **Prototypes live in a top-level `prototypes/<name>/` folder**, outside the build. ([The repository](spec/fork.md#the-repository))
 - **The name is Planish**, and the launcher, the URL scheme and other lowercase identifiers are `planish`. ([The repository](spec/fork.md#the-repository))
 - **Upstream release tags only, kept current.** Planish rebases onto each VS Code release that VSCodium adopts, and moves to a newer release itself once it is 8 weeks behind upstream or when the Electron it ships nears its end of life. It never builds upstream's `main`. Fixes for Chromium bugs exploited in the wild ship within days. ([Keeping up with upstream](spec/fork.md#keeping-up-with-upstream); [Electron and Chromium](spec/fork.md#electron-and-chromium))
 - **Microsoft's closed agent parts are deleted, as VSCodium deletes them, and VS Code's MIT chat interface stays hidden, not forked.** Planish's own sidebar is a view of its own. ([Microsoft's agent stack](spec/fork.md#microsofts-agent-stack))
@@ -45,6 +46,7 @@ These are Planish's decisions, made by the maintainer: the ones that set what Pl
 - **An explain-back on agent changes.** With learn mode on, a short explain-back appears before the learner accepts an agent's change. It can be skipped, and skips are logged for the learner only. ([Explain-back on agent changes](spec/learn.md#explain-back-on-agent-changes))
 - **Review in place.** Review items are anchored to code and appear when that code is opened, scheduled by FSRS-6, and changed code is re-taught. The first release has no separate review page and no daily review session. ([Review in place](spec/learn.md#review-in-place))
 - **Model grades of explanations are advisory** until the user's model passes a calibration set shipped with Planish; then they count towards mastery. ([Marking](spec/learn.md#marking))
+- **Runs of a project's code refuse loopback by default**, as they refuse the network; the learner may allow loopback for one project, with a warning. ([Running code](spec/fork.md#running-code))
 
 ## The paper lane
 

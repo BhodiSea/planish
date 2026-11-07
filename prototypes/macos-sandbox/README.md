@@ -28,7 +28,7 @@ On GitHub's `macos-15-arm64` runner (macOS 15.8.2, image 20261104.0514.1) on 6 N
 | [BurntSushi/memchr](https://github.com/BurntSushi/memchr/tree/bd6068c30e9074a90c285e47912fa0b047d07597) | `cargo test --offline` | yes | 0.1 s | pass 18.1 s | pass 19.4 s | pass 18.9 s | 454 MB |
 | [dtolnay/anyhow](https://github.com/dtolnay/anyhow/tree/87c8571326d60b90391d0555c9675b5ac6f044b1) | `cargo test --offline` | yes | 0.1 s | pass 13.0 s | pass 16.8 s | pass 15.6 s | 591 MB |
 
-- Of the 11 projects whose tests pass without the sandbox, 9 pass with no network and all 11 with loopback. Express's tests (through supertest) and Gin's (through Go's `httptest`) start a server on a loopback port, which no network forbids.
+- Of the 11 projects whose tests pass without the sandbox, 9 pass with no network and all 11 with loopback. Express's tests (through supertest) and Gin's (through Go's `httptest`) start a server on a loopback port, which no network forbids. The maintainer has decided that loopback is refused by default and that the learner may allow it for one project, with a warning; `run.mjs --network loopback` stands in for that choice until [#20](https://github.com/BhodiSea/planish/issues/20) builds it.
 - kleur's tests fail without the sandbox too: its test runner loads ES modules through `esm`, which Node 24 refuses.
 - Detection matched the command each project's own CI runs in all 12, and asked to confirm for Cobra and Gin, which also have a Makefile with a test target.
 - Cloning took at most 2.6 s, for chalk's `node_modules`. Node's `fs.cp` with `COPYFILE_FICLONE` copied the data instead of cloning it (a 1 GB file used 1 GB), so the prototype calls `cp -c`; the tests check that a 1 GB clone uses almost no space.
