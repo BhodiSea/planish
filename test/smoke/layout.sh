@@ -39,8 +39,7 @@ echo b > "${TMP}/workspace/b.txt"
 mkdir -p "${TMP}/user-data/User"
 echo '[{ "key": "ctrl+alt+shift+f12", "command": "workbench.action.togglePanel" }]' > "${TMP}/user-data/User/keybindings.json"
 
-# Each run passes once run.js has passed: the app quits as a user would, and its exit code is not the test's.
-SMOKE_OUT="${TMP}/editors.json" run_tests layout "${TMP}/extensions" || exit 1
+SMOKE_OUT="${TMP}/editors.json" drive layout --skip-welcome --skip-release-notes
 snapshot > "${TMP}/before.txt"
 for laid in '"workbench.panel.hidden": "false"' '"workbench.sidebar.activeviewletid": "workbench.view.search"'; do
   if ! grep -qF "${laid}" "${TMP}/before.txt"; then
@@ -63,7 +62,7 @@ jq '.version |= (split(".") | .[2] = ((.[2] | tonumber) + 1 | tostring) | join("
 mv "${TMP}/product.json" "${PRODUCT}"
 echo "Updating to $( jq -r .version "${PRODUCT}" )"
 
-SMOKE_OUT="${TMP}/editors.json" FIRST_SCREENS=1 run_tests update "${TMP}/extensions" || exit 1
+SMOKE_OUT="${TMP}/editors.json" drive update
 snapshot > "${TMP}/after.txt"
 cat "${TMP}/after.txt"
 diff "${TMP}/before.txt" "${TMP}/after.txt" || { echo "The update changed the layout or the user's files" >&2; exit 1; }

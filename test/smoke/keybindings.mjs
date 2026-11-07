@@ -5,9 +5,10 @@
 // Usage: node test/smoke/keybindings.mjs UPSTREAM PLANISH
 import { readFileSync } from 'node:fs';
 
-// The file is JSON but for its comments, which take whole lines.
+// The file is JSON but for its comments, which take whole lines. A shortcut that names the user's
+// own keybindings.json names it by the test's temporary folder, which differs between runs.
 const read = file => JSON.parse(readFileSync(file, 'utf8').split('\n').filter(line => !/^\s*\/\//.test(line)).join('\n'))
-  .map(({ key, command, when, args }) => JSON.stringify({ key, command, when, args }));
+  .map(({ key, command, when, args }) => JSON.stringify({ key, command, when, args }).replace(/vscode-userdata:[^'"]*/g, 'vscode-userdata:USER'));
 
 const [upstream, planish] = process.argv.slice(2).map(read);
 const keys = new Set(upstream.map(entry => JSON.parse(entry).key));

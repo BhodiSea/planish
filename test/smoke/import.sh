@@ -53,8 +53,13 @@ stop() {
 # sample ID APP_NAME: gives the editor its sample setup, and writes what run.js checks to $TMP/ID.json.
 sample() {
   local id="$1" app="/Applications/$2.app"
-  local resources="${app}/Contents/Resources/app"
-  local cli exe marker="${TMP}/${id}.marker" storage="" user location extensions
+  local resources cli exe marker="${TMP}/${id}.marker" storage="" user location extensions
+  resources="$( dirname "$( find "${app}/Contents" -maxdepth 5 -path '*/app/product.json' | head -n 1 )" )"
+  if [[ ! -f "${resources}/product.json" ]]; then
+    find "${app}/Contents" -maxdepth 3 | head -n 60
+    echo "::error::$2 holds no app/product.json"
+    return 1
+  fi
   cli="${resources}/bin/$( jq -r .applicationName "${resources}/product.json" )"
   exe="${app}/Contents/MacOS/$( /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${app}/Contents/Info.plist" )"
   xattr -dr com.apple.quarantine "${app}" 2> /dev/null || true
@@ -131,7 +136,7 @@ for editor in "${EDITORS[@]}"; do
   rm -rf "${TMP}/user-data" "${TMP}/extensions"
   mkdir -p "${TMP}/user-data/User/globalStorage"
   python3 -I "${STATE}" set "${TMP}/user-data/User/globalStorage/state.vscdb" extensions.trustedPublishers "${TRUSTED}"
-  if SMOKE_IMPORT="${id}" SMOKE_SAMPLE="${TMP}/${id}.json" SMOKE_OUT="${TMP}/${id}.md" run_tests import "${TMP}/extensions"; then
+  if SMOKE_IMPORT="${id}" SMOKE_SAMPLE="${TMP}/${id}.json" SMOKE_OUT="${TMP}/${id}.md" drive import --skip-welcome --skip-release-notes; then
     echo "Planish imported ${name}'s setup"
   else
     echo "::error::Importing ${name}'s setup failed"

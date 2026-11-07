@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Runs in the app's extension host (--extensionTestsPath); the app exits with 0 when run() resolves, 1 when it throws.
-// SMOKE_MODE picks the checks: smoke (smoke.sh), agents (agents.sh), keybindings (keybindings.sh),
-// layout and update (layout.sh), or import (import.sh).
+// SMOKE_MODE picks the checks: smoke (smoke.sh), agents (agents.sh) or keybindings (keybindings.sh).
+// layout.sh and import.sh drive the app through main.js instead (SMOKE_DRIVE), for its stored state.
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
@@ -115,9 +115,11 @@ async function agents() {
   }
 }
 
-// Writes out the default keyboard shortcuts, as the app shows them, for keybindings.sh to compare.
+// Writes out the default keyboard shortcuts, as the app shows them, for keybindings.sh to compare,
+// once the parts that register theirs late have done so.
 async function keybindings() {
   const uri = 'vscode://defaultsettings/keybindings.json';
+  await sleep(15000);
   await vscode.commands.executeCommand('workbench.action.openDefaultKeybindingsFile');
   let document;
   for (let tries = 0; !document && tries < 30; tries++) {
@@ -135,9 +137,8 @@ async function keybindings() {
 const editors = () => vscode.window.tabGroups.all.map(group =>
   group.tabs.map(tab => `${group.viewColumn}:${tab.input && tab.input.uri ? path.basename(tab.input.uri.fsPath) : tab.label}`));
 
-// Quits the app as a user would, so that it saves its state, once the test has passed.
+// Quits the app as a user would, so that it saves its state.
 async function quit() {
-  fs.writeFileSync(process.env.SMOKE_PASSED, '');
   vscode.commands.executeCommand('workbench.action.quit');
   await new Promise(() => { });
 }
@@ -153,7 +154,6 @@ async function layout() {
   }
   await sleep(2000);
   fs.writeFileSync(process.env.SMOKE_OUT, JSON.stringify(editors()));
-  await quit();
 }
 
 // After the update: the same editors, in the same groups.
@@ -168,7 +168,6 @@ async function update() {
     throw new Error(`after the update the editors are ${found}, not ${expected}`);
   }
   console.log(`after the update the editors are still ${found}`);
-  await quit();
 }
 
 const parse = text => JSON.parse(text);
@@ -221,10 +220,15 @@ async function importSetup() {
   console.log(`imported ${editor}'s setup`);
 }
 
+// Runs layout, update or import in an app started without the test runner, then quits it.
+exports.drive = mode => ({ layout, update, import: importSetup })[mode]()
+  .then(() => fs.writeFileSync(process.env.SMOKE_PASSED, ''), error => console.error(`${mode} failed: ${error && error.stack}`))
+  .then(quit);
+
 let own;
 
 exports.run = async () => {
   own = await vscode.extensions.getExtension('planish.planish-smoke').activate();
-  await { smoke, agents, keybindings, layout, update, import: importSetup }[process.env.SMOKE_MODE]();
+  await { smoke, agents, keybindings }[process.env.SMOKE_MODE]();
   fs.writeFileSync(process.env.SMOKE_PASSED, '');
 };
