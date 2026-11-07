@@ -3,13 +3,13 @@
 // for anything that looks like work. Planish touches only folders holding its marker file.
 'use strict';
 
-const { execFileSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const { isAscii, shortPath } = require('./paths');
+const { userFolder } = require('./userfolder');
 
 const MARKER = '.planish-session';
 
@@ -24,11 +24,21 @@ const WORK = new Set(['.c', '.cc', '.cpp', '.cs', '.css', '.csv', '.dart', '.doc
 
 // The folder that holds the sessions' folders: under the system's temp folder, in a form with
 // only ASCII characters. On Windows, where neither it nor its short name is ASCII, it is
-// <drive>\PlanishTemp\<user SID>, which only the user may open.
+// <drive>\PlanishTemp\<user SID>, which only the user may open, or, where that is refused,
+// the temp folder as it is, with ascii false and the reason as error.
 function tempRoot(base = os.tmpdir(), drive = process.env.SystemDrive || 'C:') {
   if (process.platform === 'win32') {
     const short = isAscii(base) ? base : shortPath(base);
-    const root = short ? path.join(short, 'planish') : userFolder(path.join(`${drive}\\`, 'PlanishTemp'));
+    if (!short) {
+      try {
+        return { root: userFolder(path.join(`${drive}\\`, 'PlanishTemp')), ascii: true };
+      } catch (error) {
+        const root = path.join(base, 'planish');
+        fs.mkdirSync(root, { recursive: true });
+        return { root, ascii: false, error: error.message };
+      }
+    }
+    const root = path.join(short, 'planish');
     fs.mkdirSync(root, { recursive: true });
     return { root, ascii: isAscii(root) };
   }
@@ -47,32 +57,6 @@ function tempRoot(base = os.tmpdir(), drive = process.env.SystemDrive || 'C:') {
     throw new Error(`${root} is not a folder only this user can open`);
   }
   return { root, ascii: isAscii(root) };
-}
-
-// Makes parent\<user SID>, with an access list giving that user alone full control, and
-// refuses one whose list holds anyone else.
-function userFolder(parent) {
-  const run = (command, args) => execFileSync(command, args, { encoding: 'utf8', windowsHide: true });
-  const sid = run('whoami', ['/user', '/fo', 'csv', '/nh']).trim().split(',').pop().replace(/"/g, '');
-  if (!/^S-1-[0-9-]+$/.test(sid)) {
-    throw new Error(`whoami gave no SID: ${sid}`);
-  }
-  const folder = path.join(parent, sid);
-  fs.mkdirSync(folder, { recursive: true });
-  // A protected list, so nothing is inherited, with one entry: full control for the user.
-  const dacl = `D:P(A;OICI;FA;;;${sid})`;
-  const script = '$acl = Get-Acl -LiteralPath $env:PLANISH_FOLDER; $acl.SetSecurityDescriptorSddlForm($env:PLANISH_DACL, "Access"); '
-    + 'Set-Acl -LiteralPath $env:PLANISH_FOLDER -AclObject $acl; (Get-Acl -LiteralPath $env:PLANISH_FOLDER).Sddl';
-  // Without PSModulePath, which PowerShell 7 sets for its own modules, Windows PowerShell finds its own.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toLowerCase() !== 'psmodulepath'));
-  const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  const sddl = execFileSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', script],
-    { encoding: 'utf8', windowsHide: true, env: { ...env, PLANISH_FOLDER: folder, PLANISH_DACL: dacl } }).trim();
-  // Read back, the list may name the user by an alias, such as LA for the built-in administrator.
-  if (!/D:PA?I?\(A;OICI;FA;;;[A-Z0-9-]+\)$/.test(sddl)) {
-    throw new Error(`${folder} is open to others: ${sddl}`);
-  }
-  return folder;
 }
 
 /** Makes a session's folder, marked as the current process's. */

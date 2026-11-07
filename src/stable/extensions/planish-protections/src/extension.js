@@ -17,12 +17,12 @@ exports.activate = context => {
   const log = vscode.window.createOutputChannel('Planish Protections', { log: true });
   context.subscriptions.push(log);
 
-  const { root, ascii } = tempRoot();
+  const { root, ascii, error } = tempRoot();
   session = createSession(root);
   Object.assign(process.env, sessionEnvironment(session));
   log.info(`Session ${session.id}, temp folder ${session.folder}`);
   if (!ascii) {
-    log.warn(`${root} has characters other than ASCII, and no short name`);
+    log.warn(`${root} has characters other than ASCII, and no short name${error ? `; ${error}` : ''}`);
   }
 
   let reported = 0;
