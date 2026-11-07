@@ -85,7 +85,7 @@ A repair is a change too, and the fence check compares each of VSCodium's patche
 
 - A line the change adds to a VS Code file sits in a fence, as in any upstream file.
 - A line VSCodium's version adds that the change drops stays in the patch as a comment in a fence, among the patch's lines for that file.
-- A VS Code line VSCodium's version removes stays removed. To keep it, add it back in a fence.
+- A VS Code line VSCodium's version removes stays removed. To keep it, add it back in a fence. If VS Code has changed that line, the repair removes the new line and keeps VSCodium's as a comment in a fence.
 - In strict JSON, which holds no comments, keep VSCodium's line and change it with an overlay in `patches/user/json/`. A line holding its file type's comment closer (`*/`, `-->`, or `--` in XML) cannot be kept as a comment either, so it stays.
 
 ## The pull request
