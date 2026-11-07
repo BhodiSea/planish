@@ -24,6 +24,7 @@ test('each editor\'s folders on each platform', () => {
     vscode: ['/Users/a/Library/Application Support/Code/User', '/Users/a/.vscode/extensions'],
     cursor: ['/Users/a/Library/Application Support/Cursor/User', '/Users/a/.cursor/extensions'],
     antigravity: ['/Users/a/Library/Application Support/Antigravity/User', '/Users/a/.antigravity/extensions'],
+    'antigravity-ide': ['/Users/a/Library/Application Support/Antigravity IDE/User', '/Users/a/.antigravity-ide/extensions'],
   });
   assert.deepEqual(at('linux', {}, '/home/a').cursor, ['/home/a/.config/Cursor/User', '/home/a/.cursor/extensions']);
   assert.deepEqual(at('linux', { XDG_CONFIG_HOME: '/x' }, '/home/a').vscode, ['/x/Code/User', '/home/a/.vscode/extensions']);

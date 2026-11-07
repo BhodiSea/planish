@@ -185,6 +185,9 @@ async function importSetup() {
     await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
   }
   const report = await within(1, importing, 'The import');
+  if (typeof report !== 'string') {
+    throw new Error(`Planish found no ${editor} setup to import`);
+  }
   console.log(report);
   fs.writeFileSync(process.env.SMOKE_OUT, report);
 

@@ -22,7 +22,7 @@ SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 # id:cask. Antigravity's editor is the cask antigravity-ide: since 2.0 the cask antigravity is
 # Google's agent app, which is not a VS Code fork and keeps no VS Code setup.
-EDITORS=(vscode:visual-studio-code cursor:cursor antigravity:antigravity-ide)
+EDITORS=(vscode:visual-studio-code cursor:cursor antigravity-ide:antigravity-ide)
 TRUSTED='{"editorconfig": {"publisher": "EditorConfig", "publisherDisplayName": "EditorConfig"},
   "redhat": {"publisher": "redhat", "publisherDisplayName": "Red Hat"},
   "ms-python": {"publisher": "ms-python", "publisherDisplayName": "Microsoft"}}'
