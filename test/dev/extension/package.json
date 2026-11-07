@@ -1,0 +1,10 @@
+{
+  "name": "planish-loop-test",
+  "publisher": "planish",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.100.0"
+  }
+}
