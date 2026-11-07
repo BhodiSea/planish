@@ -1,0 +1,21 @@
+{
+  "name": "planish-paper-grammars",
+  "private": true,
+  "description": "Prototype: Lezer grammars for pandoc Markdown, LaTeX and Typst, and the paper editor's byte-for-byte round trip",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-wasm-modules --test \"test/*.test.js\"",
+    "report": "node --experimental-wasm-modules report.js"
+  },
+  "dependencies": {
+    "@codemirror/language": "6.13.1",
+    "@codemirror/state": "6.7.6",
+    "@lezer/common": "1.5.5",
+    "@lezer/generator": "1.8.1",
+    "@lezer/lr": "1.4.12",
+    "@lezer/markdown": "1.8.1",
+    "@lezer/yaml": "1.0.4",
+    "codemirror-lang-typst": "0.6.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "planish-learn",
+  "displayName": "Planish Learn",
+  "description": "Planish's learn mode: the lesson templates' schemas, the lesson validator and lesson storage.",
+  "version": "0.1.0",
+  "publisher": "planish",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ]
+}

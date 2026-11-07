@@ -21,4 +21,5 @@ font-size/node_modules/
 font-size/generate-css.js
 # --- Start Planish ---
 __pycache__/
+node_modules/
 # --- End Planish ---

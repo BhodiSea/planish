@@ -103,7 +103,7 @@ Each of these is unknown; its linked file says how it will be settled.
 - **Where the explain-back attaches to Claude Code and Codex.** If a prototype shows that only a second hook works, the agent kit may add one, at user level with consent *(decided)* ([learn.md](learn.md#what-is-not-known-yet)).
 - **Whether the sidebar's agent can be confined**, read-only and reaching only its model. Untrusted folders stay in Restricted Mode, and until that is shown, learn mode teaches only repositories the user trusts *(both decided)* ([fork.md](fork.md#the-agent-that-builds-lessons)).
 - **The paper editor's foundations** ([paper.md](paper.md#what-is-not-known-yet)), and **whether extensions that feed VS Code's hidden chat keep working** ([agent-integration.md](agent-integration.md#unknowns)).
-- **How far the default protections reach:** whether the Claude Code and Codex extensions pass Planish's environment to their programs, whether Cline and Kilo Code run every command in VS Code's terminals, and what a snapshot before every command costs ([protections.md](protections.md#what-is-not-known-yet)).
+- **How far the default protections reach:** whether Planish's environment reaches every command the Claude Code and Codex extensions run, and whether Claude Code's auto-allow can be limited to Planish sessions ([protections.md](protections.md#what-is-not-known-yet)).
 
 ## The spec files
 

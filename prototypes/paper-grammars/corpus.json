@@ -1,0 +1,172 @@
+[
+  {
+    "format": "markdown",
+    "kind": "paper",
+    "repository": "greenelab/deep-review",
+    "commit": "44ff95a2756bd03a32c046eb8983ac9c4f223b0a",
+    "path": "content/02.intro.md",
+    "licence": "CC-BY-4.0",
+    "bytes": 20678,
+    "sha256": "f528135028313042a37ac28ce7ffe05a2fb78ac913d01dedd49563322dc964d3"
+  },
+  {
+    "format": "markdown",
+    "kind": "paper",
+    "repository": "greenelab/deep-review",
+    "commit": "44ff95a2756bd03a32c046eb8983ac9c4f223b0a",
+    "path": "content/03.categorize.md",
+    "licence": "CC-BY-4.0",
+    "bytes": 52394,
+    "sha256": "9cd3277803fc142a9cee67559e04caf27d245ad9b13560cd351b06719fa8b183"
+  },
+  {
+    "format": "markdown",
+    "kind": "template",
+    "repository": "manubot/rootstock",
+    "commit": "f44f9bbe35441a8acd51a5898e6e739acaf54c1c",
+    "path": "content/02.delete-me.md",
+    "licence": "CC-BY-4.0",
+    "bytes": 10286,
+    "sha256": "905480b7d6642fa3f743ca861b642cd8ea86b6661fe11379b528f57825e77ede"
+  },
+  {
+    "format": "markdown",
+    "kind": "template",
+    "repository": "quarto-journals/jss",
+    "commit": "bfb49c4985e7a0e792ffa64614157da22b793c52",
+    "path": "template.qmd",
+    "licence": "GPL-3.0",
+    "bytes": 13785,
+    "sha256": "7c23dc9931dc5d68232532cb430935512dec095375d2da436e1d586bf9cb8a62"
+  },
+  {
+    "format": "markdown",
+    "kind": "test",
+    "repository": "jgm/pandoc",
+    "commit": "d13c664ffd7a6e6350b83b9ddb166e74446e86c9",
+    "path": "MANUAL.txt",
+    "licence": "GPL-2.0-or-later",
+    "bytes": 309089,
+    "sha256": "f70736d1c3bf691ab3e3e7f104eb6b941cf7a9eaea32e49c138c0f9c54962218"
+  },
+  {
+    "format": "markdown",
+    "kind": "test",
+    "repository": "jgm/pandoc",
+    "commit": "d13c664ffd7a6e6350b83b9ddb166e74446e86c9",
+    "path": "test/testsuite.txt",
+    "licence": "GPL-2.0-or-later",
+    "bytes": 9207,
+    "sha256": "10479d46c9f5646b917b09974c4b22529a44a2e75e563dc487cb6f8534bb3777"
+  },
+  {
+    "format": "latex",
+    "kind": "paper",
+    "repository": "scipy/scipy-articles",
+    "commit": "e400b145dd148bafa3ef1b6f08a831da7fcf1204",
+    "path": "scipy-1.0/paper.tex",
+    "licence": "BSD-3-Clause",
+    "bytes": 62940,
+    "sha256": "512944af5d065820396526a38ce14f5304c3858fdbccaf248c0831ac5d66638b"
+  },
+  {
+    "format": "latex",
+    "kind": "paper",
+    "repository": "mdeff/paper-cnn-graph-recurrent-iclr2017",
+    "commit": "0e0788da49a188b9de50ad31c48a72d2ad0757fb",
+    "path": "paper.tex",
+    "licence": "CC-BY-4.0",
+    "bytes": 40638,
+    "sha256": "5cb29abc2e6c1920bc8b69c9a18fd0bf74ca0e0a8ec9ec3ba6ea3dbcf0153f00"
+  },
+  {
+    "format": "latex",
+    "kind": "paper",
+    "repository": "freenet/paper-1",
+    "commit": "bff15702759800a003ffbfce639fe859f57d966d",
+    "path": "main.tex",
+    "licence": "CC-BY-4.0",
+    "bytes": 4537,
+    "sha256": "645ad442f9f64c43613beebd2df6b478bbab3a03a3dce145e0cd7c463a860fd9"
+  },
+  {
+    "format": "latex",
+    "kind": "paper",
+    "repository": "freenet/paper-1",
+    "commit": "bff15702759800a003ffbfce639fe859f57d966d",
+    "path": "sections/05-routing.tex",
+    "licence": "CC-BY-4.0",
+    "bytes": 17695,
+    "sha256": "36c8d6c7a2b4481677d09d72db1187e242d16c082faba666f8eb8d7ad4c69b10"
+  },
+  {
+    "format": "latex",
+    "kind": "template",
+    "repository": "JmlrOrg/tmlr-style-file",
+    "commit": "7bf90efe3a0debbba703c05c43f3ff7e4d4a2992",
+    "path": "main.tex",
+    "licence": "Apache-2.0",
+    "bytes": 16787,
+    "sha256": "85a994256fae53477e935bbacdf45b7e0e031abff660991485a61bff9bd4704c"
+  },
+  {
+    "format": "latex",
+    "kind": "test",
+    "repository": "jgm/pandoc",
+    "commit": "d13c664ffd7a6e6350b83b9ddb166e74446e86c9",
+    "path": "test/writer.latex",
+    "licence": "GPL-2.0-or-later",
+    "bytes": 16789,
+    "sha256": "4cfa494a64e2110d57f1a1a3b6f4ad985f731d1c2a423e00ff85767e38bd0d53"
+  },
+  {
+    "format": "typst",
+    "kind": "paper",
+    "repository": "janosh/pymatgen-2-paper",
+    "commit": "8449aa315f782ee118705a9303ed29c2b2259a0c",
+    "path": "paper/main.typ",
+    "licence": "BSD-3-Clause",
+    "bytes": 63989,
+    "sha256": "29d639c9ceb6bc9dc10bb862ba6ef39910ef5cf3ce9c0cea536642e6ba77c613"
+  },
+  {
+    "format": "typst",
+    "kind": "paper",
+    "repository": "janosh/pymatgen-2-paper",
+    "commit": "8449aa315f782ee118705a9303ed29c2b2259a0c",
+    "path": "paper/si.typ",
+    "licence": "BSD-3-Clause",
+    "bytes": 41831,
+    "sha256": "4a20a274b27803871feed6ae6b1bb38844e7c5f7f8cce520599539aeea51206c"
+  },
+  {
+    "format": "typst",
+    "kind": "paper",
+    "repository": "pammacdotnet/TypstPaper",
+    "commit": "93e13008f26b0c90ce61bd4a1302ec20d0481106",
+    "path": "paper.typ",
+    "licence": "none stated",
+    "bytes": 86415,
+    "sha256": "f4a0380c3da456db0aeba0a796a30fee11516eabed710b41b0e32fe977252d14"
+  },
+  {
+    "format": "typst",
+    "kind": "template",
+    "repository": "typst/packages",
+    "commit": "ccca57a13ff2a81696ab822db648d71f61aa9103",
+    "path": "packages/preview/lucky-icml/0.7.0/template/main.typ",
+    "licence": "MIT",
+    "bytes": 22722,
+    "sha256": "4a283d044323bc9cf2211c25063ecafd5c7306b13cc42bfd52aeb060b831c06f"
+  },
+  {
+    "format": "typst",
+    "kind": "test",
+    "repository": "jgm/pandoc",
+    "commit": "d13c664ffd7a6e6350b83b9ddb166e74446e86c9",
+    "path": "test/writer.typst",
+    "licence": "GPL-2.0-or-later",
+    "bytes": 13341,
+    "sha256": "b554412a02b295f91dc42cd8104aa203ebe3b9947cc8358b0b53ea5f0162cd19"
+  }
+]

@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Prototype - protection facts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - prototypes/protection-facts/**
+      - .github/workflows/protection-facts.yml
+  pull_request:
+    paths:
+      - prototypes/protection-facts/**
+      - .github/workflows/protection-facts.yml
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  snapshots:
+    name: Snapshots on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2022, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Measure snapshots of a large project
+        shell: bash
+        run: node prototypes/protection-facts/snapshot.mjs "${RUNNER_TEMP}/snapshots"
+
+  githooks:
+    name: Git hooks on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26, windows-2022, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Table header
+        shell: bash
+        run: |
+          {
+            echo "### Hooks set in git's configuration on ${{ matrix.os }}"
+            echo
+            echo "| git | Version | pre-commit runs | with --no-verify | pre-push runs | with --no-verify | Beside the repository's own hook (configured/own) | With core.hooksPath set |"
+            echo "|---|---|---|---|---|---|---|---|"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Apple's git and the command line tools
+        if: runner.os == 'macOS'
+        run: |
+          sw_vers
+          xcode-select -p
+          pkgutil --pkg-info=com.apple.pkg.CLTools_Executables || true
+          /usr/bin/git --version
+          prototypes/protection-facts/githooks.sh /usr/bin/git "Apple (/usr/bin/git)"
+          prototypes/protection-facts/githooks.sh "$( brew --prefix )/bin/git" Homebrew
+          CLT=/Library/Developer/CommandLineTools/usr/bin/git
+          if [[ -x "${CLT}" ]]; then
+            prototypes/protection-facts/githooks.sh "${CLT}" "Command line tools"
+          fi
+
+      - name: The runner's git
+        if: runner.os != 'macOS'
+        shell: bash
+        run: prototypes/protection-facts/githooks.sh git "${{ runner.os }}"
+
+  extensions:
+    name: Agent extensions' code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Check the code behind the README's answers
+        run: node prototypes/protection-facts/extensions.mjs "${RUNNER_TEMP}/extensions"
+

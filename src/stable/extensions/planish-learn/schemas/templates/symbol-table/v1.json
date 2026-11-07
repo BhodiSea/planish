@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:cogveralabs.ai,2026:planish/templates/symbol-table/v1",
+  "title": "Symbol table",
+  "description": "The learner matches each symbol of an equation to its meaning, its shape or unit, and the code's variable.",
+  "type": "object",
+  "properties": {
+    "template": {
+      "const": "tag:cogveralabs.ai,2026:planish/templates/symbol-table/v1",
+      "description": "This template and major version."
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "type": "string",
+      "description": "A short title the learner sees."
+    },
+    "after": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "description": "Ids of earlier parts the learner should finish first."
+    },
+    "equation": {
+      "type": "string",
+      "description": "The equation in LaTeX."
+    },
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Each symbol in the equation, once.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "The symbol in LaTeX, as written in the equation."
+          },
+          "meaning": {
+            "type": "string",
+            "description": "What it stands for."
+          },
+          "shape": {
+            "type": "string",
+            "description": "Optional; its shape, such as \"n × d\"."
+          },
+          "unit": {
+            "type": "string",
+            "description": "Optional; its unit."
+          },
+          "variable": {
+            "type": "object",
+            "description": "The variable that holds it in the code.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The variable's name."
+              },
+              "cite": {
+                "$ref": "#/$defs/cite"
+              }
+            },
+            "required": [
+              "name",
+              "cite"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "symbol",
+          "meaning",
+          "variable"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "template",
+    "id",
+    "title",
+    "equation",
+    "symbols"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,47}$",
+      "description": "Lowercase letters, digits and hyphens, starting with a letter; unique in the lesson."
+    },
+    "file": {
+      "type": "string",
+      "description": "A path relative to the project's root, with forward slashes."
+    },
+    "cite": {
+      "type": "object",
+      "description": "The lines of code that bear this out.",
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/file"
+        },
+        "line": {
+          "type": "integer",
+          "description": "The first line, counted from 1."
+        },
+        "endLine": {
+          "type": "integer",
+          "description": "The last line, inclusive."
+        }
+      },
+      "required": [
+        "file",
+        "line",
+        "endLine"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

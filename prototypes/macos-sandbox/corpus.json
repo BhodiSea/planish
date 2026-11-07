@@ -1,0 +1,14 @@
+[
+  { "repo": "expressjs/express", "commit": "43fca52d28a422c8be48fd489cbd4f2d6152bab6", "setup": "npm install --no-audit --no-fund", "expect": "npm test" },
+  { "repo": "chalk/chalk", "commit": "72110019e147683f60e13fa0ff5c14a0c27cd9fe", "setup": "npm install --no-audit --no-fund", "expect": "npm test" },
+  { "repo": "lukeed/kleur", "commit": "fa3454483899ddab550d08c18c028e6db1aab0e5", "setup": "npm install --no-audit --no-fund", "expect": "npm test" },
+  { "repo": "jshttp/mime-types", "commit": "3a1187ee21388efe46b916d4991589d595bcb26c", "setup": "npm install --no-audit --no-fund", "expect": "npm test" },
+  { "repo": "unjs/defu", "commit": "82632b66f5914e9946edce300e10633a3d5c0cb7", "setup": "corepack enable && corepack install && pnpm install --frozen-lockfile", "expect": "pnpm test" },
+  { "repo": "pallets/click", "commit": "ac0e297ec2d7d78455a7d18ce306996e668c4a85", "setup": "python3 -m venv .venv && .venv/bin/pip install -q -e . pytest", "expect": ".venv/bin/python -m pytest" },
+  { "repo": "pallets/itsdangerous", "commit": "672971d66a2ef9f85151e53283113f33d642dabd", "setup": "python3 -m venv .venv && .venv/bin/pip install -q -e . pytest freezegun", "expect": ".venv/bin/python -m pytest" },
+  { "repo": "google/uuid", "commit": "2d3c2a9cc518326daf99a383f07c4d3c44317e4d", "setup": "go mod download && go test -count=1 -run '^$' ./...", "expect": "go test ./..." },
+  { "repo": "spf13/cobra", "commit": "adbc8813901bba65827259daa8e22ff94ec1f30e", "setup": "go mod download && go test -count=1 -run '^$' ./...", "expect": "go test ./..." },
+  { "repo": "gin-gonic/gin", "commit": "0f09c3a9b4626d9fe9979cf4d0521d6ae32ab646", "setup": "go mod download && go test -count=1 -run '^$' ./...", "expect": "go test ./..." },
+  { "repo": "BurntSushi/memchr", "commit": "bd6068c30e9074a90c285e47912fa0b047d07597", "setup": "cargo fetch && cargo test --no-run", "expect": "cargo test" },
+  { "repo": "dtolnay/anyhow", "commit": "87c8571326d60b90391d0555c9675b5ac6f044b1", "setup": "cargo fetch && cargo test --no-run", "expect": "cargo test" }
+]

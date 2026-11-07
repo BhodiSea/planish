@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# Test of the development loop in CONTRIBUTING.md. Adds a probe workbench part and a probe
+# built-in extension to src/stable/, links them with dev/link.sh, runs VS Code's watch
+# transpile, edits both and checks that out/ follows the part's edit, then starts the app
+# from source and checks, from inside it, that the extension loads from the repository with
+# its edit. Removes the probes from src/stable/ when it exits; dev/link.sh removes their links.
+#
+# Usage: test/dev/loop.sh    (Linux needs a display: xvfb-run -a test/dev/loop.sh)
+
+set -euo pipefail
+
+cd "$( dirname "${BASH_SOURCE[0]}" )/../.."
+ROOT="${PWD}"
+HERE="${ROOT}/test/dev"
+
+PART="src/vs/workbench/contrib/planish/browser/loopProbe.ts"
+EXTENSION="extensions/planish-loop-probe"
+
+mkdir -p "$( dirname "src/stable/${PART}" )" "src/stable/${EXTENSION}"
+echo "export const loopProbe = 'before';" > "src/stable/${PART}"
+cat > "src/stable/${EXTENSION}/package.json" <<'JSON'
+{
+  "name": "planish-loop-probe",
+  "publisher": "planish",
+  "version": "0.0.0",
+  "engines": { "vscode": "^1.100.0" },
+  "main": "./main.js"
+}
+JSON
+echo "exports.activate = () => ({ value: 'before' });" > "src/stable/${EXTENSION}/main.js"
+
+WATCH=""
+cleanup() {
+  if [[ -n "${WATCH}" ]]; then
+    kill "${WATCH}" 2> /dev/null || true
+    tail -n 40 watch.log
+  fi
+  rm -rf "src/stable/${EXTENSION}" "src/stable/${PART}" "src/stable/${PART}.bak" watch.log
+  rmdir -p "$( dirname "src/stable/${PART}" )" 2> /dev/null || true
+}
+trap cleanup EXIT
+
+./dev/link.sh
+
+# Waits up to $2 seconds for $1 to succeed.
+wait_for() {
+  local i
+  for (( i = 0; i < $2; i++ )); do
+    if eval "$1"; then return 0; fi
+    sleep 1
+  done
+  echo "timed out waiting for: $1" >&2
+  return 1
+}
+
+OUT="vscode/out/${PART#src/}"
+OUT="${OUT%.ts}.js"
+( cd vscode && exec npm run watch-client-transpile ) > watch.log 2>&1 &
+WATCH=$!
+wait_for 'grep -q "Finished transpilation" watch.log' 900
+wait_for "grep -qs before '${OUT}'" 30
+
+# The watcher reports nothing until it has scanned src/, which on Linux takes a while after
+# the transpile ends, so the edit is saved again until it shows.
+sed -i.bak 's/before/after/' "src/stable/${PART}" "src/stable/${EXTENSION}/main.js"
+for (( i = 0; i < 18; i++ )); do
+  if wait_for "grep -qs after '${OUT}'" 10; then break; fi
+  cp "src/stable/${PART}" "src/stable/${PART}.new" && mv "src/stable/${PART}.new" "src/stable/${PART}"
+done
+grep -qs after "${OUT}"
+echo "watch transpiled the edit to ${OUT}"
+kill "${WATCH}"
+
+TMP="$( mktemp -d )"
+mkdir -p "${TMP}/workspace"
+LOOP_EXTENSION="planish.planish-loop-probe" LOOP_PATH="${ROOT}/src/stable/${EXTENSION}" LOOP_PASSED="${TMP}/passed" \
+  ./vscode/scripts/code.sh "${TMP}/workspace" \
+  "--user-data-dir=${TMP}/user-data" "--extensions-dir=${TMP}/extensions" \
+  "--extensionDevelopmentPath=${HERE}/extension" \
+  "--extensionTestsPath=${HERE}/extension/run.js" \
+  --disable-telemetry --disable-updates --skip-welcome --skip-release-notes --no-cached-data \
+  --disable-workspace-trust --use-inmemory-secretstorage
+[[ -f "${TMP}/passed" ]] || { echo "The app exited without running test/dev/extension/run.js" >&2; exit 1; }

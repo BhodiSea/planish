@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Release - versions file
+
+# The app's updater reads stable/darwin/arm64/latest.json on the versions branch (issue #56).
+on:
+  release:
+    types:
+      - published
+  # Rewrites a published release's file, as after its notes gain or lose "Security fix:".
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  versions:
+    name: Offer the release to the updater
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      FILE: stable/darwin/arm64/latest.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Write the versions file
+        run: |
+          gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json tagName,publishedAt,body,isDraft,isPrerelease > "${RUNNER_TEMP}/release.json"
+          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}" --dir "${RUNNER_TEMP}" --pattern "Planish-darwin-arm64-${TAG}.zip.sha256"
+          previous=()
+          if gh api "repos/${GITHUB_REPOSITORY}/contents/${FILE}?ref=versions" > "${RUNNER_TEMP}/current.json"; then
+            jq -r .content "${RUNNER_TEMP}/current.json" | base64 -d > "${RUNNER_TEMP}/previous.json"
+            previous=( "${RUNNER_TEMP}/previous.json" )
+          else
+            rm "${RUNNER_TEMP}/current.json"
+          fi
+          python3 -I -B dev/versions.py "${RUNNER_TEMP}/release.json" "${RUNNER_TEMP}/Planish-darwin-arm64-${TAG}.zip.sha256" latest.json "${previous[@]}"
+
+      - name: Commit it to the versions branch
+        if: hashFiles('latest.json') != ''
+        run: |
+          message="Offer Planish ${TAG}"
+          if [[ -f "${RUNNER_TEMP}/current.json" ]]; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${FILE}" -f branch=versions -f message="${message}" \
+              -f content="$( base64 -w0 latest.json )" -f sha="$( jq -r .sha "${RUNNER_TEMP}/current.json" )"
+          elif gh api "repos/${GITHUB_REPOSITORY}/branches/versions" > /dev/null; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${FILE}" -f branch=versions -f message="${message}" \
+              -f content="$( base64 -w0 latest.json )"
+          else
+            # The first release starts the branch, holding only the versions file.
+            tree="$( jq -n --arg path "${FILE}" --rawfile content latest.json '{tree: [{path: $path, mode: "100644", type: "blob", content: $content}]}' \
+              | gh api "repos/${GITHUB_REPOSITORY}/git/trees" --input - --jq .sha )"
+            commit="$( jq -n --arg tree "${tree}" --arg message "${message}" '{tree: $tree, message: $message}' \
+              | gh api "repos/${GITHUB_REPOSITORY}/git/commits" --input - --jq .sha )"
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref=refs/heads/versions -f sha="${commit}"
+          fi

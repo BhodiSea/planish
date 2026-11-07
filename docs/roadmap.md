@@ -13,6 +13,7 @@ A development build of Planish for Apple silicon that works as VS Code does, bui
 - [#3](https://github.com/BhodiSea/planish/issues/3) Require sign-off and maintainer approval for outside contributors' CI
 - [#4](https://github.com/BhodiSea/planish/issues/4) Set up the development loop and the contributing guide
 - [#5](https://github.com/BhodiSea/planish/issues/5) Check in CI that every edit to an upstream file is fenced
+- [#81](https://github.com/BhodiSea/planish/issues/81) Close the fence check's remaining gaps
 - [#6](https://github.com/BhodiSea/planish/issues/6) Measure startup and typing against VSCodium at the same VS Code release
 - [#7](https://github.com/BhodiSea/planish/issues/7) Write the upstream sync guide and use it for one sync
 

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:cogveralabs.ai,2026:planish/templates/code-tour/v1",
+  "title": "Code tour",
+  "description": "The learner steps through the real files, stop by stop, as in CodeTour.",
+  "type": "object",
+  "properties": {
+    "template": {
+      "const": "tag:cogveralabs.ai,2026:planish/templates/code-tour/v1",
+      "description": "This template and major version."
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "type": "string",
+      "description": "A short title the learner sees."
+    },
+    "after": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "description": "Ids of earlier parts the learner should finish first."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The stops, in order.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/$defs/file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "The line to stop at, counted from 1."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional; a short name for the stop."
+          },
+          "description": {
+            "type": "string",
+            "description": "What the learner should see here."
+          }
+        },
+        "required": [
+          "file",
+          "line",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "template",
+    "id",
+    "title",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,47}$",
+      "description": "Lowercase letters, digits and hyphens, starting with a letter; unique in the lesson."
+    },
+    "file": {
+      "type": "string",
+      "description": "A path relative to the project's root, with forward slashes."
+    }
+  }
+}

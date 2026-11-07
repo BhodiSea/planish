@@ -2,6 +2,7 @@
 // Runs in the app's extension host (--extensionTestsPath); the app exits with 0 when run() resolves, 1 when it throws.
 // SMOKE_MODE picks the checks: smoke (smoke.sh), agents (agents.sh) or edits (edits.sh).
 const fs = require('fs');
+const path = require('path');
 const vscode = require('vscode');
 
 // Claude Code's documented link, and a link to Codex's handler, whose routes are undocumented.
@@ -61,6 +62,17 @@ async function smoke() {
     throw new Error(`commands any extension can run may open agents' links: ${commands.join(', ')}`);
   }
 
+  // A built-in extension of Planish's, with its validator and schemas as the app ships them.
+  const learn = vscode.extensions.getExtension('planish.planish-learn');
+  if (!learn) {
+    throw new Error('the built-in extension planish.planish-learn is missing');
+  }
+  const { validateLesson } = require(path.join(learn.extensionPath, 'src', 'lessons', 'validate.js'));
+  const errors = validateLesson(require('../../learn/lesson.json'));
+  if (errors.length) {
+    throw new Error(`the sample lesson fails the shipped validator: ${JSON.stringify(errors)}`);
+  }
+
   console.log(`smoke test passed: ${vscode.env.appName} opened ${folders[0]} with ${extension.id} ${extension.packageJSON.version}`);
 }
 
@@ -101,7 +113,7 @@ async function agents() {
 
 // Each case: what makes the edit, run with the editor on edits.txt, and the fields its event's
 // detailedReason.metadata must have; a field set to undefined must be missing. Expected values are
-// what VS Code 1.143.1's source gives, and extensionEdit what patches/user/30-api-label-extension-edits.patch adds.
+// what VS Code 1.143.1's source gives, and extensionEdit what patches/user/40-api-label-extension-edits.patch adds.
 const EDITS = [
   ['Typing', 'the type command', c => c.command('type', { text: 'a' }), { source: 'cursor', kind: 'type', detailedSource: 'keyboard' }],
   ['Pasting', 'the paste command', c => c.command('paste', { text: 'b' }), { source: 'cursor', kind: 'paste', detailedSource: 'keyboard' }],

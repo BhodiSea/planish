@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tag:cogveralabs.ai,2026:planish/templates/equation-code/v1",
+  "title": "Equation and code",
+  "description": "The learner sees an equation beside its function, predicts an output for a tiny input, then changes a term.",
+  "type": "object",
+  "properties": {
+    "template": {
+      "const": "tag:cogveralabs.ai,2026:planish/templates/equation-code/v1",
+      "description": "This template and major version."
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "type": "string",
+      "description": "A short title the learner sees."
+    },
+    "after": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "description": "Ids of earlier parts the learner should finish first."
+    },
+    "equation": {
+      "type": "string",
+      "description": "The equation in LaTeX."
+    },
+    "function": {
+      "type": "object",
+      "description": "The function that computes it.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The function's name."
+        },
+        "cite": {
+          "$ref": "#/$defs/cite"
+        }
+      },
+      "required": [
+        "name",
+        "cite"
+      ],
+      "additionalProperties": false
+    },
+    "symbols": {
+      "$ref": "#/$defs/id",
+      "description": "Optional; the id of the symbol-table part for this equation."
+    },
+    "predict": {
+      "type": "object",
+      "description": "The output to predict; Planish runs the call for the answer.",
+      "properties": {
+        "call": {
+          "type": "string",
+          "description": "The call, in the code's language, with tiny inputs."
+        },
+        "prompt": {
+          "type": "string",
+          "description": "The question, as the learner sees it."
+        }
+      },
+      "required": [
+        "call",
+        "prompt"
+      ],
+      "additionalProperties": false
+    },
+    "change": {
+      "type": "object",
+      "description": "The term to change.",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Which term to change and what to watch, as the learner sees it."
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "template",
+    "id",
+    "title",
+    "equation",
+    "function",
+    "predict",
+    "change"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,47}$",
+      "description": "Lowercase letters, digits and hyphens, starting with a letter; unique in the lesson."
+    },
+    "file": {
+      "type": "string",
+      "description": "A path relative to the project's root, with forward slashes."
+    },
+    "cite": {
+      "type": "object",
+      "description": "The lines of code that bear this out.",
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/file"
+        },
+        "line": {
+          "type": "integer",
+          "description": "The first line, counted from 1."
+        },
+        "endLine": {
+          "type": "integer",
+          "description": "The last line, inclusive."
+        }
+      },
+      "required": [
+        "file",
+        "line",
+        "endLine"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

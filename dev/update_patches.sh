@@ -127,7 +127,16 @@ check_file() {
 
       git restore .vscode/settings.json
       git add .
+      # --- Start Planish ---
+      # Planish's own patches open with their licence line, which git diff would drop.
+      SPDX="$( head -n1 "${1}" | grep -x '# SPDX-License-Identifier: Apache-2.0' || true )"
+      # --- End Planish ---
       git diff --staged -U1 > "${1}"
+      # --- Start Planish ---
+      if [[ -n "${SPDX}" ]]; then
+        printf '%s\n' "${SPDX}" | cat - "${1}" > "${1}.tmp" && mv -f "${1}.tmp" "${1}"
+      fi
+      # --- End Planish ---
     fi
 
     git add .
@@ -248,3 +257,18 @@ for ARCH in alpine linux osx windows; do
     done
   done
 done
+
+# --- Start Planish ---
+# Planish's patches apply last in prepare_vscode.sh, so each is checked on top of VSCodium's.
+for FILE in ../patches/user/*.patch; do
+  if [[ -f "${FILE}" ]]; then
+    for CANDIDATE in ../patches/*.json; do
+      if [[ -f "${CANDIDATE}" ]]; then
+        apply_actions "${CANDIDATE}"
+      fi
+    done
+
+    check_file ../patches/*.patch "${FILE}"
+  fi
+done
+# --- End Planish ---
