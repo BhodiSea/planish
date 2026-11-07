@@ -79,7 +79,7 @@ These need a logged-in agent, a clean Mac or the performance budgets, so they ar
 - Whether Claude Code's hooks see `dangerouslyDisableSandbox`, whether its permission dialog waits for a `PermissionRequest` hook, and whether its auto-allow can be limited to Planish sessions.
 - Whether Codex's turn-end hook runs in the extension, and whether a user can trust a hook there.
 - On a clean Mac: which git the command line tools install, and whether a sandbox denial suppresses macOS's privacy prompt.
-- Measuring snapshots with the performance budgets, once [#57](https://github.com/BhodiSea/planish/issues/57) has calibrated them.
+- Measuring snapshots with the performance budgets, once [#57](https://github.com/BhodiSea/planish/issues/57) has calibrated them: the maintainer has decided that #42's snapshot box waits for #57.
 
 ## Limits of the prototype
 
