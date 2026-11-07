@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: Apache-2.0
+// A tolerant LaTeX grammar: commands, groups, maths, comments and verbatim
+// text. Environments stay flat, a Begin and an End, as LaTeX macros may open
+// one inside a group and close it in another; the editor pairs them.
+
+@top Document { item* }
+
+item { text | Command | Group | math | Begin | End | Verbatim | VerbatimEnvironment }
+
+text { Text | ControlSymbol | Brackets | Linebreak }
+
+Command { ControlWord }
+
+Group { "{" item* "}" }
+
+Begin { @specialize<ControlWord, "\\begin"> EnvironmentGroup }
+End { @specialize<ControlWord, "\\end"> EnvironmentGroup }
+EnvironmentGroup { "{" EnvironmentName "}" }
+
+math { InlineMath | DisplayMath | BracketMath | ParenMath }
+
+InlineMath { "$" mathItem* "$" }
+DisplayMath { "$$" mathItem* "$$" }
+BracketMath { "\\[" mathItem* "\\]" }
+ParenMath { "\\(" mathItem* "\\)" }
+
+mathItem { text | Command | Group | Begin | End }
+
+@external tokens verbatim from "./latex-tokens.js" { Verbatim, VerbatimEnvironment }
+
+@skip { Comment }
+
+@tokens {
+  ControlWord { "\\" $[a-zA-Z@]+ "*"? }
+  ControlSymbol { "\\" ![a-zA-Z@\[\]()] }
+  EnvironmentName { $[a-zA-Z@*]+ }
+  Text { ![\\{}$%\[\]\n]+ }
+  Linebreak { "\n" }
+  Brackets { "[" | "]" }
+  Comment { "%" ![\n]* }
+  "{" "}" "$" "$$" "\\[" "\\]" "\\(" "\\)"
+  @precedence { "\\[", "\\]", "\\(", "\\)", ControlSymbol }
+}
+
+@detectDelim
