@@ -131,7 +131,8 @@ async function edits() {
   let events = [];
   api.workspace.onDidChangeTextDocument(e => e.document === document && e.contentChanges.length && events.push(e));
   const end = () => document.lineAt(document.lineCount - 1).range.end;
-  api.languages.registerCompletionItemProvider({ pattern: file }, { provideCompletionItems: () => [new api.CompletionItem('zebra')] });
+  // An empty range at the cursor, so that the word before it does not filter the item out.
+  api.languages.registerCompletionItemProvider({ pattern: file }, { provideCompletionItems: (d, p) => [Object.assign(new api.CompletionItem('zebra'), { range: new api.Range(p, p) })] });
   api.languages.registerInlineCompletionItemProvider({ pattern: file }, { provideInlineCompletionItems: (d, p) => [new api.InlineCompletionItem('ghost', new api.Range(p, p))] });
   api.languages.registerDocumentFormattingEditProvider({ pattern: file }, { provideDocumentFormattingEdits: d => [api.TextEdit.insert(d.positionAt(0), ' ')] });
 
