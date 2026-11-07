@@ -31,6 +31,16 @@ These are Planish's decisions, made by the maintainer: the ones that set what Pl
 - **Prototypes live in a top-level `prototypes/<name>/` folder**, each with its own README and workflow, outside the build. ([The repository](spec/fork.md#the-repository))
 - **CI builds Planish in its own workflow, `ci.yml`**: macOS on Apple silicon, Windows x64 and Linux x64, with no secrets and least privilege. VSCodium's build and release workflows are deleted, and each sync keeps them deleted. ([Build, release and updates](spec/fork.md#build-release-and-updates))
 
+## Speed on very large codebases
+
+Decided on 7 November 2026.
+
+- **Parity with VS Code, and a target beyond it.** With learning features off, Planish matches the startup, typing and memory of the same VS Code release, checked against Microsoft's build as well as VSCodium's. Its target is to be faster than Microsoft's build in the large-repository scenarios; the target guides Planish's own work and is not a claim Planish makes. ([Fast on very large codebases](spec/README.md#2-fast-on-very-large-codebases); [Large repositories](spec/fork.md#large-repositories))
+- **Large-repository defaults ship from a built-in extension with no code**, which excludes dependency and build folders from watching and turns off following symlinks in search. This replaces the rule that VS Code's watcher and search settings stay as shipped. ([Indexing](spec/fork.md#indexing))
+- **TypeScript 7 is bundled and on by default**, and projects that rely on tsserver plugins keep the JavaScript-based server. ([Large repositories](spec/fork.md#large-repositories))
+- **The editor's own git status calls use git's file-system monitor in large repositories**, and Planish offers, with the user's consent, to optimise the repository's own configuration. ([Large repositories](spec/fork.md#large-repositories))
+- **A local n-gram code index is planned now**, not only if the code-search budget fails. ([Indexing](spec/fork.md#indexing))
+
 ## Agents
 
 - **Claude Code and Codex stay ordinary extensions with their own logins**, as in VS Code. Planish never starts a run on a user's subscription login and never wraps their command-line tools. It reaches them through the agent kit, and by opening their panel with a prompt filled in, which the user sends. ([Claude Code and Codex](spec/agent-integration.md#claude-code-and-codex))

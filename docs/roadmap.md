@@ -88,6 +88,17 @@ Protections against agent actions users do not want, the same for every agent an
 - [#52](https://github.com/BhodiSea/planish/issues/52) Offer harness-style rules as opt-in packs
 - [#53](https://github.com/BhodiSea/planish/issues/53) Export how often each flag and confirmation fired, for the user to send
 
+## Fast on very large codebases
+
+Faster than Microsoft's build of VS Code where the number of files counts, a target for Planish's own work and not a claim *(decided)*: large-repository defaults, upstream's startup optimisations, TypeScript 7 on by default, git's file-system monitor and a local code index. ([fork.md](https://github.com/BhodiSea/planish/blob/main/docs/spec/fork.md#large-repositories))
+
+- [#105](https://github.com/BhodiSea/planish/issues/105) Record the large-repository performance decisions in the spec
+- [#101](https://github.com/BhodiSea/planish/issues/101) Ship large-repository defaults from a built-in extension
+- [#102](https://github.com/BhodiSea/planish/issues/102) Keep the startup optimisations in upstream's build
+- [#103](https://github.com/BhodiSea/planish/issues/103) Bundle TypeScript 7 and turn it on by default
+- [#104](https://github.com/BhodiSea/planish/issues/104) Use git's file-system monitor for large repositories
+- [#72](https://github.com/BhodiSea/planish/issues/72) Build a local code index for search, Quick Open and learn mode
+
 ## The first release, on Apple silicon
 
 Planish for macOS on Apple silicon, signed, notarised and tested by hand, with both lanes, the default protections and updates. ([fork.md](https://github.com/BhodiSea/planish/blob/main/docs/spec/fork.md#build-release-and-updates))
@@ -121,6 +132,5 @@ Windows and Linux releases once each is tested *(decided)*, and more of each lan
 - [#69](https://github.com/BhodiSea/planish/issues/69) Add Parsons problems, traces and a concept map to the catalogue
 - [#70](https://github.com/BhodiSea/planish/issues/70) Check equations in Lean where its maths library has the definitions
 - [#71](https://github.com/BhodiSea/planish/issues/71) Add the paper lane's later parts
-- [#72](https://github.com/BhodiSea/planish/issues/72) Build the fuller code index if the search budget fails
 - [#73](https://github.com/BhodiSea/planish/issues/73) Sign in to GitHub through Planish's own GitHub app
 - [#74](https://github.com/BhodiSea/planish/issues/74) Build the calibration set for grading explanations
