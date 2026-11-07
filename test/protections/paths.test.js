@@ -58,3 +58,17 @@ test('a non-ASCII temp folder gives an ASCII root, through its short name', { sk
 test('there is no short name off Windows', { skip: windows }, () => {
   assert.equal(shortPath(base), undefined);
 });
+
+test('with no ASCII form, the root is the user\'s own folder in PlanishTemp', { skip: !windows }, () => {
+  // shortPath gives no short name for a path holding %, as for a drive with short names off.
+  const folder = path.join(base, 'Jürgen%');
+  fs.mkdirSync(folder, { recursive: true });
+  const drive = path.join(base, 'drive');
+  const { root, ascii } = tempRoot(folder, drive);
+  assert.ok(ascii);
+  assert.match(root, /\\PlanishTemp\\S-1-[0-9-]+$/);
+  assert.equal(path.dirname(path.dirname(root)), drive);
+  const entries = execFileSync('icacls', [root], { encoding: 'utf8' }).split(/\r?\n/).filter(line => /:\(/.test(line));
+  assert.equal(entries.length, 1, entries.join('; '));
+  assert.equal(tempRoot(folder, drive).root, root);
+});

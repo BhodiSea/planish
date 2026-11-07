@@ -3,6 +3,7 @@
 // for anything that looks like work. Planish touches only folders holding its marker file.
 'use strict';
 
+const { execFileSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -22,11 +23,12 @@ const WORK = new Set(['.c', '.cc', '.cpp', '.cs', '.css', '.csv', '.dart', '.doc
   '.rb', '.rs', '.scss', '.sql', '.svelte', '.swift', '.tex', '.ts', '.tsx', '.txt', '.typ', '.vue', '.xlsx', '.zig']);
 
 // The folder that holds the sessions' folders: under the system's temp folder, in a form with
-// only ASCII characters where one exists. ascii is false when none does.
-function tempRoot(base = os.tmpdir()) {
+// only ASCII characters. On Windows, where neither it nor its short name is ASCII, it is
+// <drive>\PlanishTemp\<user SID>, which only the user may open.
+function tempRoot(base = os.tmpdir(), drive = process.env.SystemDrive || 'C:') {
   if (process.platform === 'win32') {
     const short = isAscii(base) ? base : shortPath(base);
-    const root = path.join(short || base, 'planish');
+    const root = short ? path.join(short, 'planish') : userFolder(path.join(`${drive}\\`, 'PlanishTemp'));
     fs.mkdirSync(root, { recursive: true });
     return { root, ascii: isAscii(root) };
   }
@@ -45,6 +47,24 @@ function tempRoot(base = os.tmpdir()) {
     throw new Error(`${root} is not a folder only this user can open`);
   }
   return { root, ascii: isAscii(root) };
+}
+
+// Makes parent\<user SID>, with an access list giving that user alone full control, and
+// refuses one whose list holds anyone else.
+function userFolder(parent) {
+  const run = (command, args) => execFileSync(command, args, { encoding: 'utf8', windowsHide: true });
+  const sid = run('whoami', ['/user', '/fo', 'csv', '/nh']).trim().split(',').pop().replace(/"/g, '');
+  if (!/^S-1-[0-9-]+$/.test(sid)) {
+    throw new Error(`whoami gave no SID: ${sid}`);
+  }
+  const folder = path.join(parent, sid);
+  fs.mkdirSync(folder, { recursive: true });
+  run('icacls', [folder, '/inheritance:r', '/grant:r', `*${sid}:(OI)(CI)F`, '/q']);
+  const entries = run('icacls', [folder]).split(/\r?\n/).filter(line => /:\(/.test(line));
+  if (entries.length !== 1) {
+    throw new Error(`${folder} is open to others: ${entries.join('; ')}`);
+  }
+  return folder;
 }
 
 /** Makes a session's folder, marked as the current process's. */
