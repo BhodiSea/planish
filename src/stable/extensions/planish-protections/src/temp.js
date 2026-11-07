@@ -21,10 +21,8 @@ const WORK = new Set(['.c', '.cc', '.cpp', '.cs', '.css', '.csv', '.dart', '.doc
   '.ipynb', '.java', '.js', '.jsx', '.kt', '.lua', '.m', '.md', '.mjs', '.odt', '.pdf', '.php', '.pptx', '.py', '.r',
   '.rb', '.rs', '.scss', '.sql', '.svelte', '.swift', '.tex', '.ts', '.tsx', '.txt', '.typ', '.vue', '.xlsx', '.zig']);
 
-/**
- * The folder that holds the sessions' folders: under the system's temp folder, in a form with
- * only ASCII characters where one exists. ascii is false when none does.
- */
+// The folder that holds the sessions' folders: under the system's temp folder, in a form with
+// only ASCII characters where one exists. ascii is false when none does.
 function tempRoot(base = os.tmpdir()) {
   if (process.platform === 'win32') {
     const short = isAscii(base) ? base : shortPath(base);
@@ -125,10 +123,8 @@ async function prune(folder, device) {
   return result;
 }
 
-/**
- * Ends a session's folder: deletes it, or all of it but its work. A folder left holding work is
- * marked as kept; one with entries that could not be deleted keeps its marker, for sweep to retry.
- */
+// Ends a session's folder: deletes it, or all of it but its work. A folder left holding work is
+// marked as kept; one with entries that could not be deleted keeps its marker, for sweep to retry.
 async function release(folder) {
   const { work, left } = await prune(folder, (await fsp.lstat(folder)).dev);
   const marker = path.join(folder, MARKER);
@@ -150,10 +146,8 @@ const alive = pid => {
   }
 };
 
-/**
- * Releases the folders of sessions whose process has ended. Returns the folders now holding
- * only work, which are no longer marked, so they are reported once.
- */
+// Releases the folders of sessions whose process has ended. Returns the folders now holding
+// only work, which are no longer marked, so they are reported once.
 async function sweep(root) {
   const kept = [];
   for (const entry of await fsp.readdir(root, { withFileTypes: true })) {

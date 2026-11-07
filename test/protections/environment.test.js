@@ -11,6 +11,7 @@ const test = require('node:test');
 const { sessionEnvironment } = require('../../src/stable/extensions/planish-protections/src/environment.js');
 
 const folder = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'protections-')));
+fs.writeFileSync(path.join(folder, 'empty.gitconfig'), '');
 const env = { ...process.env, ...sessionEnvironment({ id: '0123abcd', folder }) };
 delete env.GIT_ASKPASS;
 delete env.SSH_ASKPASS;
@@ -35,7 +36,7 @@ test('git fails at once rather than ask for a password', () => {
   return new Promise((resolve, reject) => server.listen(0, '127.0.0.1', () => {
     const { execFile } = require('node:child_process');
     execFile('git', ['ls-remote', `http://127.0.0.1:${server.address().port}/repo.git`],
-      { env: { ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: os.devNull }, timeout: 20_000 }, (error, stdout, stderr) => {
+      { env: { ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: path.join(folder, 'empty.gitconfig') }, timeout: 20_000 }, (error, stdout, stderr) => {
         server.close();
         try {
           assert.ok(error, 'git ls-remote succeeded');

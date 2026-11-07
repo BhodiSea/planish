@@ -9,10 +9,8 @@ const path = require('path');
 
 const isAscii = text => /^[\x20-\x7e]*$/.test(text);
 
-/**
- * Resolves a path to the one its target has: links and, on Windows, short names are resolved
- * in the part that exists, and the rest is appended unchanged.
- */
+// Resolves a path to the one its target has: links and, on Windows, short names are resolved
+// in the part that exists, and the rest is appended unchanged.
 function resolveTarget(target) {
   let existing = path.resolve(target);
   const rest = [];
@@ -30,10 +28,8 @@ function resolveTarget(target) {
   }
 }
 
-/**
- * The 8.3 short form of an existing folder on Windows, or undefined where it has none, since
- * short names can be switched off for each drive.
- */
+// The 8.3 short form of an existing folder on Windows, or undefined where it has none, since
+// short names can be switched off for each drive.
 function shortPath(folder) {
   if (process.platform !== 'win32' || /["%]/.test(folder)) {
     return undefined;
