@@ -19,12 +19,14 @@ const CONTAINER_AND_OBJECT = 3;
 const PARENT_DACL = `D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;;0x${MAKE_FOLDERS.toString(16)};;;AU)`;
 
 // Run by Windows PowerShell: makes both folders, sets the parent's list where it may,
-// makes the user the owner of their folder with one protected entry, and reports both as SIDs.
+// makes the user the owner of their folder with one protected entry where its owner is trusted,
+// and reports both as SIDs.
 const SCRIPT = `
 $ErrorActionPreference = 'Stop'
 $T = [System.Security.Principal.SecurityIdentifier]
 $user = New-Object System.Security.Principal.SecurityIdentifier $env:PLANISH_SID
 $sections = [System.Security.AccessControl.AccessControlSections]'Owner, Access'
+$trusted = @($env:PLANISH_SID, 'S-1-5-18', 'S-1-5-32-544')
 function Report($dir) {
   $acl = $dir.GetAccessControl($sections)
   @{ owner = $acl.GetOwner($T).Value; protected = $acl.AreAccessRulesProtected;
@@ -36,8 +38,7 @@ $parent = New-Object IO.DirectoryInfo $env:PLANISH_PARENT
 if (-not $parent.Exists) { $parent.Create() }
 $parent.Refresh()
 $acl = $parent.GetAccessControl($sections)
-$owner = $acl.GetOwner($T).Value
-if (@($env:PLANISH_SID, 'S-1-5-18', 'S-1-5-32-544') -contains $owner -and -not ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+if ($trusted -contains $acl.GetOwner($T).Value -and -not ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
   try {
     $acl.SetSecurityDescriptorSddlForm($env:PLANISH_PARENT_DACL, 'Access')
     $parent.SetAccessControl($acl)
@@ -46,11 +47,15 @@ if (@($env:PLANISH_SID, 'S-1-5-18', 'S-1-5-32-544') -contains $owner -and -not (
 $folder = New-Object IO.DirectoryInfo $env:PLANISH_FOLDER
 if (-not $folder.Exists) { $folder.Create() }
 $folder.Refresh()
-if (-not ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-  $acl = $folder.GetAccessControl($sections)
-  $acl.SetOwner($user)
-  $acl.SetSecurityDescriptorSddlForm("D:P(A;OICI;FA;;;$($env:PLANISH_SID))", 'Access')
-  $folder.SetAccessControl($acl)
+# A folder another account made is left as it is, for the check to refuse: that account may hold
+# a handle that could change the list again after a takeover.
+$acl = $folder.GetAccessControl($sections)
+if ($trusted -contains $acl.GetOwner($T).Value -and -not ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+  try {
+    $acl.SetOwner($user)
+    $acl.SetSecurityDescriptorSddlForm("D:P(A;OICI;FA;;;$($env:PLANISH_SID))", 'Access')
+    $folder.SetAccessControl($acl)
+  } catch {}
 }
 @{ parent = Report $parent; folder = Report $folder } | ConvertTo-Json -Depth 4 -Compress
 `;
