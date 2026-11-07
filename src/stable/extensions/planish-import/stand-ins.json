@@ -23,17 +23,20 @@
   },
   {
     "name": "C# and C# Dev Kit",
+    "partial": true,
     "ids": ["ms-dotnettools.csharp", "ms-dotnettools.csdevkit"],
     "standIns": ["muhammad-sammy.csharp"],
     "languages": ["csharp"]
   },
   {
     "name": "Live Share",
+    "partial": true,
     "ids": ["ms-vsliveshare.vsliveshare"],
     "standIns": ["typefox.open-collaboration-tools"]
   },
   {
     "name": "Dev Containers",
+    "partial": true,
     "ids": ["ms-vscode-remote.remote-containers"],
     "standIns": []
   },

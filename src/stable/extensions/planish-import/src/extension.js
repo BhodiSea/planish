@@ -46,7 +46,7 @@ function items(editor, planned) {
       list.push({ label: extension.displayName, description: extension.verified ? extension.id : `${extension.id}, unverified publisher`, picked: true, profile: index, id: extension.id });
     }
     for (const extension of profile.standIns) {
-      list.push({ label: extension.displayName, description: `${extension.id}, open stand-in for ${extension.for}`, picked: false, profile: index, id: extension.id });
+      list.push({ label: extension.displayName, description: `${extension.id}, ${extension.partial ? 'partial ' : ''}open stand-in for ${extension.for}`, picked: false, profile: index, id: extension.id });
     }
   });
   return list;

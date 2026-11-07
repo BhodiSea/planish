@@ -22,7 +22,8 @@ function toLookUp(profiles, standIns) {
 // What the import offers for each profile, given what Open VSX holds (`found`, by lowercase ID,
 // with each extension's displayName and whether its publisher is verified):
 // - install: the extensions found on Open VSX;
-// - standIns: each Microsoft extension's stand-ins, if on Open VSX under a verified publisher;
+// - standIns: each Microsoft extension's stand-ins, if on Open VSX under a verified publisher,
+//   with whether they do only part of its work;
 // - missing: the extensions that are not carried over, with the reason.
 function plan(profiles, found, standIns) {
   return profiles.map(profile => {
@@ -33,8 +34,8 @@ function plan(profiles, found, standIns) {
       const row = microsoftOnly(id, standIns);
       if (row) {
         const named = row.standIns.map(each => found.get(key(each))).filter(each => each && each.verified);
-        missing.push({ id, microsoft: row.name, standIns: named.map(each => each.displayName) });
-        offers.push(...named.map(each => ({ ...each, for: row.name })));
+        missing.push({ id, microsoft: row.name, partial: !!row.partial, standIns: named.map(each => each.displayName) });
+        offers.push(...named.map(each => ({ ...each, for: row.name, partial: !!row.partial })));
       } else if (found.get(key(id))) {
         install.push(found.get(key(id)));
       } else {
@@ -58,8 +59,8 @@ function report(editor, results) {
     }
     lines.push('Settings, keyboard shortcuts, tasks and snippets came over.', '', `Extensions installed: ${installed.join(', ') || 'none'}.`, '');
     const not = [
-      ...missing.map(({ id, microsoft, standIns }) => microsoft
-        ? `- ${id}: ${microsoft} is licensed only for Microsoft's products. ${standIns.length ? `Open stand-in: ${standIns.join(', ')}.` : 'There is no open stand-in.'}`
+      ...missing.map(({ id, microsoft, partial, standIns }) => microsoft
+        ? `- ${id}: ${microsoft} is licensed only for Microsoft's products. ${standIns.length ? `${partial ? 'Partial open stand-in' : 'Open stand-in'}: ${standIns.join(', ')}.` : 'There is no open stand-in.'}`
         : `- ${id}: not on Open VSX.`),
       ...left.map(id => `- ${id}: left out of the list.`),
       ...failed.map(id => `- ${id}: did not install.`),
