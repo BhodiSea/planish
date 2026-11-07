@@ -46,7 +46,7 @@ This needs a VS Code checkout at the new tag, so it runs on a machine that may c
 ./dev/update_patches.sh
 ```
 
-The script applies each of VSCodium's patches to a clean tree, then each of Planish's in `patches/user/` on top of VSCodium's, as `prepare_vscode.sh` does. When one fails, it writes `.rej` files in `vscode/` and waits. Fix the files there, keeping Planish's fences, delete the `.rej` files and press a key; the script then rewrites the patch from the tree, keeping its licence line. A coding agent runs it with its input on a pipe it can write to, and writes a key once the `.rej` files are gone. Patches that still apply, with offsets, are left as they are.
+The script applies each of VSCodium's patches to a clean tree, then each of Planish's in `patches/user/` on top of VSCodium's delete lists and root patches. Unlike `prepare_vscode.sh`, it leaves out the OS patches in `patches/<os>/`, so a Planish patch that changes a file one of them changes needs checking by hand. When one fails, it writes `.rej` files in `vscode/` and waits. Fix the files there, keeping Planish's fences, delete the `.rej` files and press a key; the script then rewrites the patch from the tree, keeping its licence line. A coding agent runs it with its input on a pipe it can write to, and writes a key once the `.rej` files are gone. Patches that still apply, with offsets, are left as they are.
 
 Read `git diff patches/` before committing: each of Planish's fences must have survived. Run the fence check again.
 
@@ -83,9 +83,9 @@ When VSCodium releases that VS Code version, merge it as in step 1. At each conf
 
 A repair is a change too, and the fence check compares each of VSCodium's patches with VSCodium's version *(decided)*:
 
-- A line the change adds to a VS Code file sits in a fence, as in any upstream file.
+- A line the change adds to a VS Code file sits in a fence, and a line it removes is kept as a comment in a fence where it was, as in any upstream file.
 - A line VSCodium's version adds that the change drops stays in the patch as a comment in a fence, among the patch's lines for that file.
-- A VS Code line VSCodium's version removes stays removed. To keep it, add it back in a fence. If VS Code has changed that line, the repair removes the new line and keeps VSCodium's as a comment in a fence.
+- A VS Code line VSCodium's version removes stays removed. To keep it, add it back in a fence. If VS Code has changed that line, the repair removes the new line and keeps both it and VSCodium's line as comments in that fence.
 - In strict JSON, which holds no comments, keep VSCodium's line and change it with an overlay in `patches/user/json/`. A line holding its file type's comment closer (`*/`, `-->`, or `--` in XML) cannot be kept as a comment either, so it stays.
 
 ## The pull request
