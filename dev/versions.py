@@ -9,7 +9,8 @@ file being replaced, if any. Writes nothing for a draft or a pre-release. The fi
 of VSCodium's update_version.sh, which VSCodium's patches 11 and 12 read, and securityFix, which
 Planish's patches/user/30-update-let-security-fixes-through.patch reads: a release is a security
 fix when a line of its notes starts "Security fix:". A release that replaces a security fix still
-inside the wait is offered at once too, or it would hold that fix back.
+inside that fix's wait is offered at once too, or it would hold the fix back; heldFix names that
+fix, so that a rerun for the same release keeps the mark.
 """
 import hashlib
 import json
@@ -44,21 +45,29 @@ def versions(release, sha256, repo, previous=None):
   current = product_version(tag)
   published = datetime.fromisoformat(release['publishedAt'].replace('Z', '+00:00'))
   timestamp = int(published.timestamp() * 1000)
-  security = bool(MARK.search(release['body'] or ''))
-  if previous and previous['name'] != tag:
+  marked = bool(MARK.search(release['body'] or ''))
+  held = None
+  if previous and previous['name'] == tag:
+    held = previous.get('heldFix')  # a rerun keeps the fix it was published within the wait of
+  elif previous:
     if numbers(previous['productVersion']) > numbers(current):
       raise ValueError(f'{previous["name"]} is newer than {tag}, so it stays the one offered')
-    held = previous.get('securityFix') is True and timestamp - int(previous['timestamp']) < WAIT_MS
-    security = security or held
-  return {
+    if previous.get('securityFix') is True:
+      fix = previous.get('heldFix') or {'name': previous['name'], 'timestamp': previous['timestamp']}
+      if timestamp - int(fix['timestamp']) < WAIT_MS:
+        held = fix
+  data = {
     'url': f'https://github.com/{repo}/releases/download/{tag}/{APP}-darwin-arm64-{tag}.zip',
     'name': tag,
     'version': hashlib.sha1(f'{tag}\n'.encode()).hexdigest(),  # version.sh's BUILD_SOURCEVERSION
     'productVersion': current,
     'timestamp': timestamp,
     'sha256hash': sha256,
-    'securityFix': security,
+    'securityFix': marked or held is not None,
   }
+  if held and not marked:
+    data['heldFix'] = held
+  return data
 
 
 def main():

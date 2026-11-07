@@ -54,6 +54,19 @@ class Versions(unittest.TestCase):
     rerun = versions.versions(release(at='2026-11-07T11:00:00Z'), SHA, REPO, fix)
     self.assertFalse(rerun['securityFix'])  # the same release, its mark since removed
 
+  def test_a_rerun_keeps_a_held_fix(self):
+    fix = versions.versions(release(body='Security fix: yes'), SHA, REPO)
+    next_ = versions.versions(release('1.143.10124', '2026-11-10T10:00:00Z'), SHA, REPO, fix)
+    self.assertEqual(next_['heldFix'], {'name': '1.143.10123', 'timestamp': 1794045600000})
+    for later in ('2026-11-10T10:00:00Z', '2026-11-20T10:00:00Z'):  # a rerun reads publishedAt
+      rerun = versions.versions(release('1.143.10124', later), SHA, REPO, next_)
+      self.assertEqual((rerun['securityFix'], rerun['heldFix']), (True, next_['heldFix']))
+    # A third release is measured from the fix, not from the release that held it.
+    third = release('1.143.10125', '2026-11-12T10:00:00Z')
+    self.assertFalse(versions.versions(third, SHA, REPO, next_)['securityFix'])
+    marked = versions.versions(release('1.143.10124', body='Security fix: too'), SHA, REPO, fix)
+    self.assertNotIn('heldFix', marked)
+
   def test_an_older_release_does_not_replace_a_newer_one(self):
     newer = versions.versions(release('1.144.1'), SHA, REPO)
     with self.assertRaisesRegex(ValueError, '1.144.1 is newer than 1.143.10123'):
