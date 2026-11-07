@@ -22,6 +22,15 @@ const within = (seconds, promise, what) => Promise.race([
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+// Waits up to the given seconds for test() to hold.
+const until = async (seconds, test, what) => {
+  for (const end = Date.now() + seconds * 1000; !test(); await sleep(250)) {
+    if (Date.now() > end) {
+      throw new Error(`${typeof what === 'function' ? what() : what} within ${seconds} s`);
+    }
+  }
+};
+
 // In tests the app answers every confirmation itself, logging this at trace level in the window's
 // log, so the questions asked are counted there. logUri is <window log folder>/exthost/<id>.
 const QUESTION = 'DialogService: refused to show confirmation dialog in tests.';
@@ -73,7 +82,78 @@ async function smoke() {
     throw new Error(`the sample lesson fails the shipped validator: ${JSON.stringify(errors)}`);
   }
 
+  await largeRepos(folders[0]);
+
   console.log(`smoke test passed: ${vscode.env.appName} opened ${folders[0]} with ${extension.id} ${extension.packageJSON.version}`);
+}
+
+// planish-large-repos's defaults, with smoke.sh's user settings and TypeScript project.
+async function largeRepos(root) {
+  const defaults = vscode.extensions.getExtension('planish.planish-large-repos');
+  if (!defaults) {
+    throw new Error('the built-in extension planish.planish-large-repos is missing');
+  }
+  const contributed = defaults.packageJSON.contributes.configurationDefaults;
+  const config = vscode.workspace.getConfiguration();
+  const excludes = config.inspect('files.watcherExclude').defaultValue;
+  for (const pattern of [...Object.keys(contributed['files.watcherExclude']), '.git/objects/**']) {
+    if (excludes[pattern] !== true) {
+      throw new Error(`files.watcherExclude does not exclude ${pattern} by default: ${JSON.stringify(excludes)}`);
+    }
+  }
+  const symlinks = config.inspect('search.followSymlinks');
+  if (symlinks.defaultValue !== false || config.get('search.followSymlinks') !== true) {
+    throw new Error(`search.followSymlinks should be off by default and on as the user set it: ${JSON.stringify(symlinks)}`);
+  }
+  if (config.get('files.watcherExclude')['dist/**'] !== false) {
+    throw new Error('the user\'s files.watcherExclude does not override dist/**');
+  }
+
+  const write = (file, text) => {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.writeFileSync(path.join(root, file), text);
+  };
+
+  // The watcher skips what the defaults exclude, but not dist/, which the user's setting watches.
+  const seen = new Set();
+  const watcher = vscode.workspace.createFileSystemWatcher('**/*');
+  for (const event of [watcher.onDidCreate, watcher.onDidChange]) {
+    event(uri => seen.add(path.relative(root, uri.fsPath).split(path.sep).join('/')));
+  }
+  const skipped = ['node_modules/dep/extra.js', 'node_modules/@scope/lib/extra.js', 'build/extra.js'];
+  for (const file of [...skipped, 'dist/extra.js']) {
+    write(file, '');
+  }
+  await until(30, () => seen.has('dist/extra.js'), 'the watcher did not report dist/extra.js');
+  await sleep(2000);
+  watcher.dispose();
+  const reported = skipped.filter(file => seen.has(file));
+  if (reported.length) {
+    throw new Error(`the watcher reported files the defaults exclude: ${reported.join(', ')}`);
+  }
+
+  // TypeScript sees a package reinstalled with other types, and packages added, scoped or not.
+  const codes = file => vscode.languages.getDiagnostics(vscode.Uri.file(path.join(root, file))).map(d => String(d.code));
+  const install = (name, type) => {
+    fs.rmSync(path.join(root, 'node_modules', name), { recursive: true, force: true });
+    write(`node_modules/${name}/package.json`, JSON.stringify({ name, version: '2.0.0', types: 'index.d.ts' }));
+    write(`node_modules/${name}/index.d.ts`, `export declare const value: ${type};\n`);
+  };
+  for (const file of ['dep.ts', 'fresh.ts', 'scopefresh.ts']) {
+    await vscode.window.showTextDocument(vscode.Uri.file(path.join(root, file)), { preview: false });
+  }
+  await until(120, () => codes('fresh.ts').includes('2307') && codes('scopefresh.ts').includes('2307') && !codes('dep.ts').length,
+    'TypeScript did not report the missing packages');
+  const checks = [
+    ['dep', 'string', 'dep.ts', () => codes('dep.ts').includes('2322'), 'a package reinstalled with other types'],
+    ['fresh', 'number', 'fresh.ts', () => !codes('fresh.ts').length, 'a package installed'],
+    ['@scope/fresh', 'number', 'scopefresh.ts', () => !codes('scopefresh.ts').length, 'a scoped package installed'],
+  ];
+  for (const [name, type, file, test, what] of checks) {
+    install(name, type);
+    await until(60, test, () => `TypeScript did not see ${what} (${file}: ${codes(file).join(', ') || 'no errors'})`);
+  }
+  console.log('planish-large-repos: the defaults apply, the user\'s settings override them, and TypeScript sees installs');
 }
 
 // Started with --enable-proposed-api for this extension, as if it were built in, and --log trace.

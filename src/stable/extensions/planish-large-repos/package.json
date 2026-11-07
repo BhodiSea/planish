@@ -1,0 +1,52 @@
+{
+  "name": "planish-large-repos",
+  "displayName": "Planish Large Repositories",
+  "description": "Defaults that keep the file watcher and search fast in large repositories.",
+  "version": "0.1.0",
+  "publisher": "planish",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "configurationDefaults": {
+      "files.watcherExclude": {
+        "node_modules/[^@]*/**": true,
+        "*/node_modules/[^@]*/**": true,
+        "*/*/node_modules/[^@]*/**": true,
+        "node_modules/@*/*/**": true,
+        "*/node_modules/@*/*/**": true,
+        "*/*/node_modules/@*/*/**": true,
+        ".venv/**": true,
+        "*/.venv/**": true,
+        "*/*/.venv/**": true,
+        "__pycache__/**": true,
+        "*/__pycache__/**": true,
+        "*/*/__pycache__/**": true,
+        "dist/**": true,
+        "*/dist/**": true,
+        "*/*/dist/**": true,
+        "build/**": true,
+        "*/build/**": true,
+        "*/*/build/**": true,
+        "out/**": true,
+        "*/out/**": true,
+        "*/*/out/**": true,
+        "target/**": true,
+        "*/target/**": true,
+        "*/*/target/**": true,
+        ".next/**": true,
+        "*/.next/**": true,
+        "*/*/.next/**": true,
+        ".turbo/**": true,
+        "*/.turbo/**": true,
+        "*/*/.turbo/**": true
+      },
+      "search.followSymlinks": false
+    }
+  }
+}
