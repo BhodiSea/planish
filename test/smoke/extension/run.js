@@ -73,6 +73,26 @@ async function smoke() {
     throw new Error(`the sample lesson fails the shipped validator: ${JSON.stringify(errors)}`);
   }
 
+  // The built-in extension planish-protections, which set this extension host's environment.
+  const protections = vscode.extensions.getExtension('planish.planish-protections');
+  if (!protections) {
+    throw new Error('the built-in extension planish.planish-protections is missing');
+  }
+  await protections.activate();
+  const session = process.env.PLANISH_SESSION;
+  const folder = process.env.TMPDIR;
+  if (!/^[0-9a-f]{8}$/.test(session || '') || !folder || path.basename(folder) !== session || !fs.statSync(folder).isDirectory()) {
+    throw new Error(`no session environment: PLANISH_SESSION is ${session}, TMPDIR ${folder}`);
+  }
+  if (!/^[\x20-\x7e]*$/.test(folder) || process.env.TEMP !== folder || require('os').tmpdir() !== folder) {
+    throw new Error(`the session's temp folder ${folder} is not ASCII, or not every program's`);
+  }
+  const pager = require('child_process').execFileSync('git', ['var', 'GIT_PAGER'], { encoding: 'utf8' }).trim();
+  if (pager !== 'cat' || process.env.GIT_TERMINAL_PROMPT !== '0') {
+    throw new Error(`git in the session has the pager ${pager}, and GIT_TERMINAL_PROMPT ${process.env.GIT_TERMINAL_PROMPT}`);
+  }
+  console.log(`session ${session} has the temp folder ${folder}`);
+
   console.log(`smoke test passed: ${vscode.env.appName} opened ${folders[0]} with ${extension.id} ${extension.packageJSON.version}`);
 }
 

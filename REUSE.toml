@@ -11,7 +11,9 @@ path = [
   "prototypes/protection-facts/extensions.json",
   "src/stable/extensions/planish-learn/package.json",
   "src/stable/extensions/planish-learn/schemas/**",
+  "src/stable/extensions/planish-protections/package.json",
   "test/learn/*.json",
+  "test/protections/package.json",
   "test/smoke/extension/package.json",
 ]
 SPDX-License-Identifier = "Apache-2.0"
