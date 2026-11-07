@@ -92,6 +92,9 @@ jobs:
           done
           exit "${status}"
 
+      - name: Check the compile cache
+        run: bash test/smoke/compile-cache.sh VSCode-darwin-arm64/Planish.app arm64
+
       # Archived and uploaded before the smoke test, which runs an extension downloaded from Open VSX.
       - name: Archive
         run: cd VSCode-darwin-arm64 && zip -q -r -X -y "../${APP_NAME}-darwin-arm64-${RELEASE_VERSION}.zip" ./*.app
@@ -324,6 +327,9 @@ jobs:
           npm_config_target_arch: x64
         run: ./build/windows/package.sh
 
+      - name: Check the compile cache
+        run: bash test/smoke/compile-cache.sh VSCode-win32-x64 x64
+
       # Uploaded before the smoke test, which runs an extension downloaded from Open VSX.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -429,6 +435,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           npm_config_arch: x64
         run: ./build/linux/package_bin.sh
+
+      - name: Check the compile cache
+        run: bash test/smoke/compile-cache.sh VSCode-linux-x64 x64
 
       - name: Archive
         run: tar -czf "${APP_NAME}-linux-x64-${RELEASE_VERSION}.tar.gz" -C VSCode-linux-x64 .
