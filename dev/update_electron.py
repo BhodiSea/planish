@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Write the patch that raises Electron's patch version (issue #56; docs/electron.md).
+"""Write the patch that raises Electron's version (issue #56; docs/electron.md).
 
 Usage: python3 -I -B dev/update_electron.py VERSION
 
