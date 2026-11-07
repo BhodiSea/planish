@@ -1,0 +1,343 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Release - macOS arm64
+
+on:
+  push:
+    tags:
+      - "[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: Release version, such as 1.143.12345; empty for the pinned VS Code tag and the hour of the year
+        required: false
+        type: string
+  # A dry run: builds and assembles the release, and publishes nothing.
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  APP_NAME: Planish
+  DISABLE_UPDATE: "yes"
+  SHOULD_BUILD_REH_WEB: "no"
+  VSCODE_QUALITY: stable
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      RELEASE_VERSION: ${{ steps.version.outputs.RELEASE_VERSION }}
+      BUILD_SOURCEVERSION: ${{ steps.version.outputs.BUILD_SOURCEVERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Set once here, so that every job builds the same version and the servers' commit matches the app's.
+      - name: Set the version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.release_version }}
+        run: |
+          if [[ -z "${RELEASE_VERSION}" ]]; then
+            RELEASE_VERSION="$( jq -r .tag upstream/stable.json )$( printf "%04d" $(( $( date +%-j ) * 24 + $( date +%-H ) )) )"
+          fi
+          . version.sh
+          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "BUILD_SOURCEVERSION=${BUILD_SOURCEVERSION}" >> "${GITHUB_OUTPUT}"
+
+  macos:
+    name: macOS arm64
+    needs: version
+    runs-on: macos-15
+    timeout-minutes: 150
+    env:
+      OS_NAME: osx
+      VSCODE_ARCH: arm64
+      MAX_OLD_SPACE_SIZE: 12288
+      RELEASE_VERSION: ${{ needs.version.outputs.RELEASE_VERSION }}
+      BUILD_SOURCEVERSION: ${{ needs.version.outputs.BUILD_SOURCEVERSION }}
+    outputs:
+      MS_TAG: ${{ env.MS_TAG }}
+      MS_COMMIT: ${{ env.MS_COMMIT }}
+      ELECTRON: ${{ steps.app.outputs.ELECTRON }}
+      CHROMIUM: ${{ steps.app.outputs.CHROMIUM }}
+      SIGNED: ${{ steps.app.outputs.SIGNED }}
+      SERVER_URL_TEMPLATE: ${{ steps.app.outputs.SERVER_URL_TEMPLATE }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Clone VS Code
+        run: ./get_repo.sh
+
+      - name: Build
+        env:
+          SHOULD_BUILD: "yes"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./build.sh
+
+      - name: Check the build-time edits
+        run: ./dev/check_build_edits.sh
+
+      # Signs and notarises only when given a certificate, which this workflow does not yet pass.
+      - name: Package
+        run: |
+          mkdir assets
+          bash build/osx/prepare_assets.sh
+          tar -czf "assets/$( tr '[:upper:]' '[:lower:]' <<< "${APP_NAME}" )-reh-darwin-${VSCODE_ARCH}-${RELEASE_VERSION}.tar.gz" -C "vscode-reh-darwin-${VSCODE_ARCH}" .
+
+      - name: Record the app's versions and signature
+        id: app
+        run: |
+          app="$( echo VSCode-darwin-arm64/*.app )"
+          product="${app}/Contents/Resources/app/product.json"
+          read -r electron chromium < <( ELECTRON_RUN_AS_NODE=1 "${app}/Contents/MacOS/$( jq -r .nameShort "${product}" )" -p 'process.versions.electron + " " + process.versions.chrome' )
+          pinned="$( sed -n 's/^target="\(.*\)"$/\1/p' vscode/.npmrc )"
+          if [[ "${electron}" != "${pinned}" ]]; then
+            echo "::error::The app runs Electron ${electron}, but vscode/.npmrc pins ${pinned}"
+            exit 1
+          fi
+          signature="$( codesign -d --verbose=2 "${app}" 2>&1 || true )"
+          if grep -q '^Authority=' <<< "${signature}"; then
+            spctl --assess --type execute --verbose=2 "${app}"
+            xcrun stapler validate "${app}"
+            signed=yes
+          else
+            signed=no
+          fi
+          {
+            echo "ELECTRON=${electron}"
+            echo "CHROMIUM=${chromium}"
+            echo "SIGNED=${signed}"
+            echo "SERVER_URL_TEMPLATE=$( jq -r .serverDownloadUrlTemplate "${product}" )"
+          } | tee -a "${GITHUB_OUTPUT}"
+
+      # Uploaded before the smoke test, which runs an extension downloaded from Open VSX.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-darwin-arm64
+          path: assets/
+          retention-days: 7
+
+      - name: Smoke test
+        timeout-minutes: 10
+        run: bash test/smoke/smoke.sh VSCode-darwin-arm64/*.app
+
+  linux-compile:
+    name: Linux x64 (compile)
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      OS_NAME: linux
+      VSCODE_ARCH: x64
+      RELEASE_VERSION: ${{ needs.version.outputs.RELEASE_VERSION }}
+      BUILD_SOURCEVERSION: ${{ needs.version.outputs.BUILD_SOURCEVERSION }}
+      SHOULD_BUILD_REH: "no"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: egor-tensin/setup-gcc@e06c44b6df51fa631dbc917dfb0ebcc5cec0aa5b # v2.0.3
+        with:
+          version: 10
+          platform: x64
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install headers for kerberos and native-keymap
+        run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev libxkbfile-dev
+
+      - name: Clone VS Code
+        run: ./get_repo.sh
+
+      - name: Build
+        env:
+          SHOULD_BUILD: "yes"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./build.sh
+
+      - name: Compress vscode folder
+        run: |
+          find vscode -type f -not -path "*/node_modules/*" -not -path "vscode/.build/node/*" -not -path "vscode/.git/*" > vscode.txt
+          echo "vscode/.build/extensions/node_modules" >> vscode.txt
+          echo "vscode/.git" >> vscode.txt
+          tar -czf vscode.tar.gz -T vscode.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vscode-linux
+          path: ./vscode.tar.gz
+          retention-days: 1
+
+  # The servers open-remote-ssh installs on a remote Linux machine.
+  linux-server:
+    name: Linux ${{ matrix.vscode_arch }} (server)
+    needs:
+      - version
+      - linux-compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - vscode_arch: x64
+            npm_arch: x64
+          - vscode_arch: arm64
+            npm_arch: arm64
+    env:
+      OS_NAME: linux
+      VSCODE_ARCH: ${{ matrix.vscode_arch }}
+      RELEASE_VERSION: ${{ needs.version.outputs.RELEASE_VERSION }}
+      BUILD_SOURCEVERSION: ${{ needs.version.outputs.BUILD_SOURCEVERSION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: egor-tensin/setup-gcc@e06c44b6df51fa631dbc917dfb0ebcc5cec0aa5b # v2.0.3
+        with:
+          version: 10
+          platform: x64
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install headers for kerberos and native-keymap
+        run: sudo apt-get update -y && sudo apt-get install -y libkrb5-dev libxkbfile-dev
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: vscode-linux
+
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          npm_config_arch: ${{ matrix.npm_arch }}
+        run: ./build/linux/package_reh.sh
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-server-linux-${{ matrix.vscode_arch }}
+          path: assets/*.tar.gz
+          retention-days: 7
+
+  assemble:
+    name: Assemble the release
+    needs:
+      - version
+      - macos
+      - linux-server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.RELEASE_VERSION }}
+      MS_TAG: ${{ needs.macos.outputs.MS_TAG }}
+      MS_COMMIT: ${{ needs.macos.outputs.MS_COMMIT }}
+      ELECTRON: ${{ needs.macos.outputs.ELECTRON }}
+      CHROMIUM: ${{ needs.macos.outputs.CHROMIUM }}
+      SIGNED: ${{ needs.macos.outputs.SIGNED }}
+      SERVER_URL_TEMPLATE: ${{ needs.macos.outputs.SERVER_URL_TEMPLATE }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-*
+          path: release/assets
+          merge-multiple: true
+
+      - name: Check that the app's server URL finds each server
+        run: |
+          status=0
+          for platform in darwin-arm64 linux-x64 linux-arm64; do
+            url="${SERVER_URL_TEMPLATE//\$\{os\}/${platform%-*}}"
+            url="${url//\$\{arch\}/${platform#*-}}"
+            if [[ "${url}" != "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_VERSION}/"* || ! -f "release/assets/${url##*/}" ]]; then
+              echo "::error::The app would install its ${platform} server from ${url}, which is not this release's"
+              status=1
+            fi
+          done
+          exit "${status}"
+
+      - name: Write the checksums
+        working-directory: release/assets
+        run: |
+          files=( * )
+          sha256sum -- "${files[@]}" > SHA256SUMS
+          for file in "${files[@]}"; do sha256sum -- "${file}" > "${file}.sha256"; done
+
+      - name: Write the release notes
+        run: |
+          {
+            echo "Planish ${RELEASE_VERSION} for macOS on Apple silicon."
+            echo
+            echo "- VS Code [${MS_TAG}](https://github.com/microsoft/vscode/tree/${MS_TAG}) (commit ${MS_COMMIT})"
+            echo "- Electron ${ELECTRON}"
+            echo "- Chromium ${CHROMIUM}"
+            echo
+            if [[ "${SIGNED}" != "yes" ]]; then
+              echo "This build is not signed or notarised, so macOS warns before opening it."
+              echo
+            fi
+            echo "Each file has its SHA-256 checksum beside it in a \`.sha256\` file, and \`SHA256SUMS\` lists them all. The \`planish-reh\` archives are the servers open-remote-ssh installs on the remote machine."
+          } > release/notes.md
+          cat release/notes.md
+          ls -l release/assets
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release
+          path: release/
+          retention-days: 7
+
+  # A draft, which the maintainer reviews and publishes; publishing a draft started by hand creates its tag.
+  publish:
+    name: Publish a draft release
+    if: github.event_name != 'pull_request'
+    needs:
+      - version
+      - assemble
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.RELEASE_VERSION }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+
+      - name: Create the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${RELEASE_VERSION}" --repo "${GITHUB_REPOSITORY}" --draft --target "${GITHUB_SHA}" --title "Planish ${RELEASE_VERSION}" --notes-file notes.md assets/*
