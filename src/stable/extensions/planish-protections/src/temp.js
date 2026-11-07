@@ -63,8 +63,11 @@ function userFolder(parent) {
   const dacl = `D:P(A;OICI;FA;;;${sid})`;
   const script = '$acl = Get-Acl -LiteralPath $env:PLANISH_FOLDER; $acl.SetSecurityDescriptorSddlForm($env:PLANISH_DACL, "Access"); '
     + 'Set-Acl -LiteralPath $env:PLANISH_FOLDER -AclObject $acl; (Get-Acl -LiteralPath $env:PLANISH_FOLDER).Sddl';
-  const sddl = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
-    { encoding: 'utf8', windowsHide: true, env: { ...process.env, PLANISH_FOLDER: folder, PLANISH_DACL: dacl } }).trim();
+  // Without PSModulePath, which PowerShell 7 sets for its own modules, Windows PowerShell finds its own.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toLowerCase() !== 'psmodulepath'));
+  const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const sddl = execFileSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', script],
+    { encoding: 'utf8', windowsHide: true, env: { ...env, PLANISH_FOLDER: folder, PLANISH_DACL: dacl } }).trim();
   if (!sddl.endsWith(dacl)) {
     throw new Error(`${folder} is open to others: ${sddl}`);
   }
