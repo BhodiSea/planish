@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Runs in the app's extension host (--extensionTestsPath); the app exits with 0 when run() resolves, 1 when it throws.
-// SMOKE_MODE picks the checks: smoke (smoke.sh) or agents (agents.sh).
+// SMOKE_MODE picks the checks: smoke (smoke.sh), agents (agents.sh) or edits (edits.sh).
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
@@ -111,10 +111,98 @@ async function agents() {
   }
 }
 
+// Each case: what makes the edit, run with the editor on edits.txt, and the fields its event's
+// detailedReason.metadata must have; a field set to undefined must be missing. Expected values are
+// what VS Code 1.143.1's source gives, and extensionEdit what patches/user/40-api-label-extension-edits.patch adds.
+const EDITS = [
+  ['Typing', 'the type command', c => c.command('type', { text: 'a' }), { source: 'cursor', kind: 'type', detailedSource: 'keyboard' }],
+  ['Pasting', 'the paste command', c => c.command('paste', { text: 'b' }), { source: 'cursor', kind: 'paste', detailedSource: 'keyboard' }],
+  ['Cutting', 'the cut command on a selection', async c => { c.select(0, 1); await c.command('cut'); }, { source: 'cursor', kind: 'cut', detailedSource: 'keyboard' }],
+  ['Input method', 'the compositionType command', c => c.command('compositionType', { text: 'c', replacePrevCharCnt: 0, replaceNextCharCnt: 0, positionDelta: 0 }), { source: 'cursor', kind: 'compositionType', detailedSource: 'keyboard' }],
+  ['Undo', 'the undo command', c => c.command('undo'), {}],
+  ['Snippet', 'TextEditor.insertSnippet', c => c.editor.insertSnippet(new c.api.SnippetString('d')), { source: 'snippet' }],
+  ['Completion accepted', 'a completion provider of this extension', c => c.acceptCompletion(), { source: 'suggest', $extensionId: 'planish.planish-smoke' }],
+  ['Inline completion accepted', 'an inline completion provider of this extension', c => c.acceptInlineCompletion(), { source: 'inlineCompletionAccept', $extensionId: 'planish.planish-smoke' }],
+  ['Formatting', 'a formatter of this extension', c => c.command('editor.action.formatDocument'), {}],
+  ['Extension edit', 'TextEditor.edit', c => c.editor.edit(b => b.insert(c.end(), 'e')), { source: 'unknown', name: 'MainThreadTextEditor' }],
+  ['Extension edit', 'workspace.applyEdit, from an extension allowed planishEditSource, as a paste', c => c.applyEdit(c.api, 'paste'), { source: 'extensionEdit', $extensionId: 'planish.planish-smoke', kind: 'paste' }],
+  ['Extension edit', 'workspace.applyEdit, from an extension not allowed planishEditSource, as typing', c => c.applyEdit(c.other, 'type'), { source: 'extensionEdit', $extensionId: 'planish.planish-smoke-other', kind: undefined }],
+  ['Change on disk', 'writing the saved file', async c => { await c.document.save(); fs.writeFileSync(c.document.uri.fsPath, 'on disk\n'); }, { source: 'reloadFromDisk' }],
+];
+
+// Started with --enable-proposed-api for this extension only, as if it were built in.
+async function edits() {
+  const api = own.vscode;
+  const other = (await vscode.extensions.getExtension('planish.planish-smoke-other').activate()).vscode;
+  const file = `${process.env.SMOKE_WORKSPACE}/edits.txt`;
+  fs.writeFileSync(file, 'zero\n');
+  const document = await api.workspace.openTextDocument(api.Uri.file(file));
+  const editor = await api.window.showTextDocument(document);
+  await api.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+
+  let events = [];
+  api.workspace.onDidChangeTextDocument(e => e.document === document && e.contentChanges.length && events.push(e));
+  const end = () => document.lineAt(document.lineCount - 1).range.end;
+  // A glob, since a full path matches no document on Windows.
+  const selector = { pattern: '**/edits.txt' };
+  // An empty range at the cursor, so that the word before it does not filter the item out.
+  api.languages.registerCompletionItemProvider(selector, { provideCompletionItems: (d, p) => [Object.assign(new api.CompletionItem('zebra'), { range: new api.Range(p, p) })] });
+  api.languages.registerInlineCompletionItemProvider(selector, { provideInlineCompletionItems: (d, p) => [new api.InlineCompletionItem('ghost', new api.Range(p, p))] });
+  api.languages.registerDocumentFormattingEditProvider(selector, { provideDocumentFormattingEdits: d => [api.TextEdit.insert(d.positionAt(0), ' ')] });
+
+  const c = {
+    api, other, document, editor, end,
+    command: (id, args) => api.commands.executeCommand(id, args),
+    select: (from, to) => { editor.selection = new api.Selection(0, from, 0, to); },
+    applyEdit: (from, userInput) => {
+      const edit = new from.WorkspaceEdit();
+      edit.insert(document.uri, end(), 'f');
+      return from.workspace.applyEdit(edit, { userInput });
+    },
+    acceptCompletion: async () => {
+      editor.selection = new api.Selection(end(), end());
+      await api.commands.executeCommand('editor.action.triggerSuggest');
+      await sleep(1500);
+      await api.commands.executeCommand('acceptSelectedSuggestion');
+    },
+    acceptInlineCompletion: async () => {
+      editor.selection = new api.Selection(end(), end());
+      await api.commands.executeCommand('editor.action.inlineSuggest.trigger');
+      await sleep(1500);
+      await api.commands.executeCommand('editor.action.inlineSuggest.commit');
+    },
+  };
+
+  const rows = ['| Edit | Made by | Reason | detailedReason.metadata | As expected |', '|---|---|---|---|---|'];
+  const failed = [];
+  for (const [what, how, make, expected] of EDITS) {
+    editor.selection = new api.Selection(end(), end());
+    events = [];
+    await make(c);
+    for (let i = 0; i < 100 && !events.length; i++) {
+      await sleep(100);
+    }
+    const [event] = events;
+    const metadata = event && event.detailedReason ? event.detailedReason.metadata : undefined;
+    const ok = !!event && Object.entries(expected).every(([key, value]) => (metadata || {})[key] === value);
+    rows.push(`| ${what} | ${how} | ${event ? api.TextDocumentChangeReason[event.reason] || '' : 'no edit'} | ${event ? `\`${JSON.stringify(metadata)}\`` : ''} | ${ok ? 'yes' : '**no**'} |`);
+    if (!ok) {
+      failed.push(`${what}, ${how}`);
+    }
+  }
+  console.log(rows.join('\n'));
+  if (process.env.SMOKE_RESULTS) {
+    fs.writeFileSync(process.env.SMOKE_RESULTS, rows.join('\n') + '\n');
+  }
+  if (failed.length) {
+    throw new Error(`edits not labelled as expected: ${failed.join('; ')}`);
+  }
+}
+
 let own;
 
 exports.run = async () => {
   own = await vscode.extensions.getExtension('planish.planish-smoke').activate();
-  await { smoke, agents }[process.env.SMOKE_MODE]();
+  await { smoke, agents, edits }[process.env.SMOKE_MODE]();
   fs.writeFileSync(process.env.SMOKE_PASSED, '');
 };
