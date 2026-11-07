@@ -46,6 +46,7 @@ These are Planish's decisions, made by the maintainer: the ones that set what Pl
 - **An explain-back on agent changes.** With learn mode on, a short explain-back appears before the learner accepts an agent's change. It can be skipped, and skips are logged for the learner only. ([Explain-back on agent changes](spec/learn.md#explain-back-on-agent-changes))
 - **Review in place.** Review items are anchored to code and appear when that code is opened, scheduled by FSRS-6, and changed code is re-taught. The first release has no separate review page and no daily review session. ([Review in place](spec/learn.md#review-in-place))
 - **Model grades of explanations are advisory** until the user's model passes a calibration set shipped with Planish; then they count towards mastery. ([Marking](spec/learn.md#marking))
+- **Runs of a project's code refuse loopback by default**, as they refuse the network; the learner may allow loopback for one project, with a warning. ([Running code](spec/fork.md#running-code))
 
 ## The paper lane
 

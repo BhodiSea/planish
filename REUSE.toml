@@ -4,6 +4,7 @@ version = 1
 [[annotations]]
 path = [
   "patches/user/json/**",
+  "prototypes/macos-sandbox/corpus.json",
   "prototypes/paper-grammars/corpus.json",
   "prototypes/paper-grammars/package-lock.json",
   "prototypes/paper-grammars/package.json",
