@@ -9,7 +9,7 @@ const EDITORS = [
   { id: 'vscode', name: 'VS Code', folder: 'Code', extensions: '.vscode' },
   { id: 'cursor', name: 'Cursor', folder: 'Cursor', extensions: '.cursor' },
   // Antigravity's editor before 2.0, when Google moved it to the separate Antigravity IDE.
-  { id: 'antigravity', name: 'Antigravity', folder: 'Antigravity', extensions: '.antigravity' },
+  { id: 'antigravity', name: 'Antigravity (before 2.0)', folder: 'Antigravity', extensions: '.antigravity' },
   { id: 'antigravity-ide', name: 'Antigravity IDE', folder: 'Antigravity IDE', extensions: '.antigravity-ide' },
 ];
 
