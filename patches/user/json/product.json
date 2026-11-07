@@ -39,6 +39,6 @@
   "reportIssueUrl": "https://github.com/BhodiSea/planish/issues/new",
   "downloadUrl": "https://github.com/BhodiSea/planish/releases",
   "releaseNotesUrl": null,
-  "updateUrl": null,
+  "updateUrl": "https://raw.githubusercontent.com/BhodiSea/planish/versions",
   "voiceWsUrl": null
 }
