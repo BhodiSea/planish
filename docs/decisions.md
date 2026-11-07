@@ -53,6 +53,8 @@ These are Planish's decisions, made by the maintainer: the ones that set what Pl
 - **The editor is a CodeMirror 6 live preview in a webview, over the paper's own files.** It never rewrites bytes the author has not touched, and one key switches to the plain source in VS Code's own editor, where every extension works. ([The editor](spec/paper.md#the-editor))
 - **Three source formats: pandoc Markdown, LaTeX and Typst.** Builds use the project's own pinned toolchain, with a pandoc-to-LaTeX build for venues that require LaTeX. ([Source formats and builds](spec/paper.md#source-formats-and-builds))
 - **Any agent can work in the lane** through its MCP tools for the selection, sources and checks. Agents' edits are detected and labelled as agent text. ([Agents](spec/paper.md#agents))
+- **Extensions' edits carry their source, through a fenced core change.** An edit an extension makes through `workspace.applyEdit` names the extension and its version, and a built-in extension may also say whether the user typed, pasted, cut or used an input method; Planish keeps this patch at each sync. ([Provenance](spec/paper.md#provenance))
+- **Agents' writes to disk are tested in CI against a scripted endpoint**: Claude Code through `ANTHROPIC_BASE_URL` and Codex through a custom model provider, with no login and no real model call. ([Provenance](spec/paper.md#provenance))
 - **The publish gate blocks on mechanical checks only**: unfilled placeholders, unresolved citations, leftover AI text, overlap with the AI draft (except under claims only) and sentences not yet rewritten. Understanding checks must be attempted, and their results are recorded, not scored. ([Checks and the publish gate](spec/paper.md#checks-and-the-publish-gate))
 
 ## Protections
